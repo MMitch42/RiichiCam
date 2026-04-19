@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { Tile, Meld, MeldType } from '@/lib/scoring/types';
-import { TileChip } from './TileRow';
+import TileGraphic from './TileGraphic';
 
 interface MeldBuilderProps {
   handTiles: Tile[];
@@ -36,7 +36,7 @@ function MeldCard({ meld, onRemove }: { meld: Meld; onRemove: () => void }) {
     <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#222536', border: '1px solid #2a2d3a' }}>
       <div className="flex gap-1 flex-wrap">
         {meld.tiles.map((tile, i) => (
-          <TileChip key={i} tile={tile} size="small" />
+          <TileGraphic key={i} tile={tile} size="small" />
         ))}
       </div>
       <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#1a1d27', color: '#d4a843' }}>
@@ -141,44 +141,17 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
                 <button
                   key={i}
                   onClick={() => toggleSelect(i)}
-                  className="flex flex-col items-center justify-center flex-shrink-0 relative"
+                  className="flex items-center justify-center flex-shrink-0"
                   style={{
-                    width: 48,
-                    height: 60,
-                    background: '#f5f0dc',
                     border: sel ? '2px solid #d4a843' : '1px solid #d4c9a0',
                     borderRadius: 6,
                     boxShadow: sel ? '0 0 0 2px rgba(212,168,67,0.3)' : '0 1px 3px rgba(0,0,0,0.3)',
                     padding: 0,
                     cursor: 'pointer',
+                    background: 'transparent',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: tile.suit === 'honor' ? 22 : 22,
-                      fontWeight: 700,
-                      lineHeight: 1.1,
-                      color: tile.suit === 'honor' ? '#cc2222' : '#111111',
-                      fontFamily: tile.suit === 'honor' ? 'serif' : 'inherit',
-                    }}
-                  >
-                    {tile.suit === 'honor'
-                      ? ({ east: '東', south: '南', west: '西', north: '北', haku: '白', hatsu: '発', chun: '中' } as Record<string, string>)[tile.value as string] ?? tile.value
-                      : String(tile.value)}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      lineHeight: 1,
-                      color: tile.suit === 'honor' ? '#cc2222' : '#888888',
-                      fontFamily: tile.suit === 'honor' ? 'serif' : 'inherit',
-                      marginTop: 1,
-                    }}
-                  >
-                    {tile.suit === 'honor'
-                      ? ({ east: 'East', south: 'South', west: 'West', north: 'North', haku: 'White', hatsu: 'Green', chun: 'Red' } as Record<string, string>)[tile.value as string] ?? tile.value
-                      : tile.suit === 'man' ? 'm' : tile.suit === 'pin' ? 'p' : 's'}
-                  </span>
+                  <TileGraphic tile={tile} size="normal" />
                 </button>
               );
             })}

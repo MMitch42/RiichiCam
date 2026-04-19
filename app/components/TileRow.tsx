@@ -9,6 +9,8 @@ interface TileRowProps {
   onChange: (tiles: Tile[]) => void;
   maxTiles?: number;
   label: string;
+  usedTiles?: Tile[];
+  isWinning?: boolean;
 }
 
 function tileName(tile: Tile): string {
