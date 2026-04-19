@@ -4,30 +4,8 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { score } from '@/lib/scoring';
 import type { Hand, ScoreResult, Tile, WindValue } from '@/lib/scoring/types';
-
-// ─── Test hand ───────────────────────────────────────────────────────────────
-// Riichi + tanyao + pinfu, East round, South seat
-// closedTiles does NOT include the winning tile
-const BASE_CLOSED: Tile[] = [
-  { suit: 'man', value: 2 }, { suit: 'man', value: 3 }, { suit: 'man', value: 4 },
-  { suit: 'pin', value: 3 }, { suit: 'pin', value: 4 }, { suit: 'pin', value: 5 },
-  { suit: 'sou', value: 4 }, { suit: 'sou', value: 5 }, { suit: 'sou', value: 6 },
-  { suit: 'sou', value: 6 }, { suit: 'sou', value: 7 }, { suit: 'sou', value: 8 },
-  { suit: 'pin', value: 6 },
-];
-const WINNING_TILE: Tile = { suit: 'pin', value: 6 };
-
-// Each indicator in this pool resolves to exactly one tile in the test hand (+1 dora per slot)
-const DORA_POOL: Tile[] = [
-  { suit: 'man', value: 1 }, // → man 2
-  { suit: 'man', value: 2 }, // → man 3
-  { suit: 'man', value: 3 }, // → man 4
-  { suit: 'pin', value: 2 }, // → pin 3
-  { suit: 'pin', value: 3 }, // → pin 4
-  { suit: 'pin', value: 4 }, // → pin 5
-  { suit: 'sou', value: 3 }, // → sou 4
-  { suit: 'sou', value: 4 }, // → sou 5
-];
+import CameraCapture from './components/CameraCapture';
+import TileRow from './components/TileRow';
 
 // ─── Reusable UI primitives ───────────────────────────────────────────────────
 
@@ -293,33 +271,43 @@ function ResultPanel({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  // Win type
+  // ── Camera / tile state ───────────────────────────────────────────────────
+  const [handTiles, setHandTiles] = useState<Tile[]>([]);
+  const [winningTile, setWinningTile] = useState<Tile | null>(null);
+  const [doraIndicatorTiles, setDoraIndicatorTiles] = useState<Tile[]>([]);
+  const [isDetectingHand, setIsDetectingHand] = useState(false);
+  const [isDetectingDora, setIsDetectingDora] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [handScanned, setHandScanned] = useState(false);
+  const [doraScanned, setDoraScanned] = useState(false);
+
+  // ── Win type ──────────────────────────────────────────────────────────────
   const [winType, setWinType] = useState<'tsumo' | 'ron'>('tsumo');
 
-  // Dealer / seat wind (synced)
+  // ── Dealer / seat wind (synced) ───────────────────────────────────────────
   const [dealer, setDealer] = useState(false);
   const [seatWind, setSeatWind] = useState<WindValue>('south');
 
-  // Round wind
+  // ── Round wind ────────────────────────────────────────────────────────────
   const [roundWind, setRoundWind] = useState<WindValue>('east');
 
-  // Riichi flags
+  // ── Riichi flags ──────────────────────────────────────────────────────────
   const [riichi, setRiichi] = useState(false);
   const [doubleRiichi, setDoubleRiichi] = useState(false);
   const [ippatsu, setIppatsu] = useState(false);
   const [uraDora, setUraDora] = useState(0);
 
-  // Special conditions
+  // ── Special conditions ────────────────────────────────────────────────────
   const [haitei, setHaitei] = useState(false);
   const [houtei, setHoutei] = useState(false);
   const [rinshan, setRinshan] = useState(false);
   const [chankan, setChankan] = useState(false);
 
-  // Dora
+  // ── Dora count (kept in UI for manual override) ───────────────────────────
   const [akaDora, setAkaDora] = useState(0);
   const [doraCt, setDoraCt] = useState(0);
 
-  // Result
+  // ── Result ────────────────────────────────────────────────────────────────
   const [result, setResult] = useState<ScoreResult | null>(null);
 
   // ── Sync helpers ──────────────────────────────────────────────────────────
@@ -340,7 +328,6 @@ export default function Home() {
 
   function handleWinType(wt: 'tsumo' | 'ron') {
     setWinType(wt);
-    // Clear conditions incompatible with the new win type
     if (wt === 'ron') {
       setHaitei(false);
       setRinshan(false);
@@ -350,28 +337,66 @@ export default function Home() {
     }
   }
 
+  // ── Detection handlers ────────────────────────────────────────────────────
+  async function handleHandCapture(base64: string) {
+    setIsDetectingHand(true);
+    setDetectError(null);
+    setHandScanned(true);
+    try {
+      const res = await fetch('/api/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setDetectError(data.error);
+        return;
+      }
+      const tiles: Tile[] = data.tiles;
+      setHandTiles(tiles.slice(0, 13));
+      if (tiles.length >= 14) setWinningTile(tiles[13]);
+    } catch {
+      setDetectError('Detection failed. Check your connection and try again.');
+    } finally {
+      setIsDetectingHand(false);
+    }
+  }
+
+  async function handleDoraCapture(base64: string) {
+    setIsDetectingDora(true);
+    setDetectError(null);
+    setDoraScanned(true);
+    try {
+      const res = await fetch('/api/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64 }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setDetectError(data.error);
+        return;
+      }
+      setDoraIndicatorTiles(data.tiles.slice(0, 4));
+    } catch {
+      setDetectError('Detection failed. Check your connection and try again.');
+    } finally {
+      setIsDetectingDora(false);
+    }
+  }
+
   // ── Build hand for scoring ────────────────────────────────────────────────
-  function buildHand(): Hand {
-    const closedTiles: Tile[] = BASE_CLOSED.map((t) => {
-      // Mark aka dora on 5-tiles that exist in the test hand (pin5, sou5)
-      if (t.suit === 'pin' && t.value === 5 && akaDora >= 1) return { ...t, isAka: true };
-      if (t.suit === 'sou' && t.value === 5 && akaDora >= 2) return { ...t, isAka: true };
-      return t;
-    });
-
-    const doraIndicators: Tile[] = DORA_POOL.slice(0, Math.min(doraCt, DORA_POOL.length));
-    const uraDoraIndicators: Tile[] =
-      riichi || doubleRiichi ? DORA_POOL.slice(0, Math.min(uraDora, DORA_POOL.length)) : [];
-
+  function buildHand(): Hand | null {
+    if (handTiles.length !== 13 || !winningTile) return null;
     return {
-      closedTiles,
+      closedTiles: handTiles,
+      winningTile,
       melds: [],
-      winningTile: WINNING_TILE,
+      doraIndicators: doraIndicatorTiles,
       winType,
       seatWind,
       roundWind,
-      doraIndicators,
-      uraDoraIndicators,
       riichi: riichi || doubleRiichi,
       doubleRiichi,
       ippatsu: (riichi || doubleRiichi) && ippatsu,
@@ -379,19 +404,88 @@ export default function Home() {
       houtei: winType === 'ron' && houtei,
       rinshan: winType === 'tsumo' && rinshan,
       chankan: winType === 'ron' && chankan,
+      uraDoraIndicators: riichi
+        ? (Array(uraDora).fill({ suit: 'man' as const, value: 1 }) as Tile[])
+        : undefined,
     };
   }
 
   function handleScore() {
-    setResult(score(buildHand()));
+    const hand = buildHand();
+    if (!hand) return;
+    setResult(score(hand));
   }
 
+  const canScore = handTiles.length === 13 && winningTile !== null;
   const isRiichi = riichi || doubleRiichi;
+  const showHandRows = handScanned || handTiles.length > 0 || winningTile !== null;
+  const showDoraRow = doraScanned || doraIndicatorTiles.length > 0;
+
+  // suppress unused-var warnings for kept UI state
+  void akaDora;
+  void doraCt;
 
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-md mx-auto px-4 py-8 space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Score Hand</h1>
+        <h1 className="text-2xl font-bold text-gray-900">RiichiCam</h1>
+
+        {/* ── Hand scan ──────────────────────────────────────────────────── */}
+        <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-4">
+          <CameraCapture
+            label="Scan Hand"
+            onCapture={handleHandCapture}
+            isLoading={isDetectingHand}
+          />
+          {showHandRows ? (
+            <div className="space-y-4">
+              <TileRow
+                label="Hand tiles"
+                tiles={handTiles}
+                onChange={setHandTiles}
+                maxTiles={13}
+              />
+              <div className="border-t border-gray-100 pt-4 bg-blue-50 -mx-4 px-4 pb-4 rounded-b-xl">
+                <TileRow
+                  label="Winning tile"
+                  tiles={winningTile ? [winningTile] : []}
+                  onChange={(tiles) => setWinningTile(tiles[0] ?? null)}
+                  maxTiles={1}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-gray-200 rounded-lg px-3 py-4 text-sm text-gray-400 text-center">
+              Tap &lsquo;Scan Hand&rsquo; to detect tiles
+            </div>
+          )}
+        </section>
+
+        {/* ── Dora scan ──────────────────────────────────────────────────── */}
+        <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-4">
+          <CameraCapture
+            label="Scan Dora"
+            onCapture={handleDoraCapture}
+            isLoading={isDetectingDora}
+          />
+          {showDoraRow ? (
+            <TileRow
+              label="Dora indicators"
+              tiles={doraIndicatorTiles}
+              onChange={setDoraIndicatorTiles}
+              maxTiles={4}
+            />
+          ) : (
+            <div className="border-2 border-dashed border-gray-200 rounded-lg px-3 py-4 text-sm text-gray-400 text-center">
+              Tap &lsquo;Scan Dora&rsquo; to detect dora indicators
+            </div>
+          )}
+        </section>
+
+        {/* ── Detection error ─────────────────────────────────────────────── */}
+        {detectError && (
+          <p className="text-sm text-red-600 font-medium">{detectError}</p>
+        )}
 
         {/* ── Conditions ─────────────────────────────────────────────────── */}
         <section className="bg-white rounded-xl border border-gray-200 shadow-sm px-4 divide-y divide-gray-100">
@@ -543,7 +637,8 @@ export default function Home() {
         {/* ── Score button ────────────────────────────────────────────────── */}
         <button
           onClick={handleScore}
-          className="w-full py-4 rounded-xl bg-blue-500 text-white text-lg font-bold shadow-sm active:bg-blue-600 transition-colors"
+          disabled={!canScore}
+          className="w-full py-4 rounded-xl bg-blue-500 text-white text-lg font-bold shadow-sm active:bg-blue-600 transition-colors disabled:opacity-50 disabled:pointer-events-none"
         >
           Score Hand
         </button>

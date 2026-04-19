@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "MahjongVision",
-  description: "Riichi mahjong scoring",
+  title: "RiichiCam",
+  description: "Riichi mahjong scoring with camera tile detection",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

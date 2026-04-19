@@ -1,4 +1,4 @@
-# MahjongVision — Architecture & Build Plan
+# RiichiCam — Architecture & Build Plan
 
 ## Architecture
 

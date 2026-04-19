@@ -1,6 +1,6 @@
-# MahjongVision
+# RiichiCam
 
-Riichi mahjong scoring web app — currently Step 1 (scoring engine only).
+Riichi mahjong scoring web app with camera tile detection.
 
 ## Run
 
