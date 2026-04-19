@@ -10,12 +10,27 @@ interface TileRowProps {
   label: string;
 }
 
+// Short name for chip display — dragons show English color only
 function tileName(tile: Tile): string {
   if (tile.suit === 'honor') {
+    if (tile.value === 'haku') return 'White';
+    if (tile.value === 'hatsu') return 'Green';
+    if (tile.value === 'chun') return 'Red';
     return tile.value.charAt(0).toUpperCase() + tile.value.slice(1);
   }
   const suffix = tile.suit === 'man' ? 'm' : tile.suit === 'pin' ? 'p' : 's';
   return `${tile.value}${suffix}`;
+}
+
+// Fuller name for palette buttons — dragons show Japanese + English color
+function tilePaletteName(tile: Tile): string {
+  if (tile.suit === 'honor') {
+    if (tile.value === 'haku') return 'Haku · White';
+    if (tile.value === 'hatsu') return 'Hatsu · Green';
+    if (tile.value === 'chun') return 'Chun · Red';
+    return tile.value.charAt(0).toUpperCase() + tile.value.slice(1);
+  }
+  return tileName(tile);
 }
 
 const MAN_TILES: Tile[] = ([1, 2, 3, 4, 5, 6, 7, 8, 9] as SuitedValue[]).map((v) => ({
@@ -41,9 +56,9 @@ const HONOR_TILES: Tile[] = [
 ];
 
 const PALETTE_ROWS = [
-  { label: 'Man', tiles: MAN_TILES },
-  { label: 'Pin', tiles: PIN_TILES },
-  { label: 'Sou', tiles: SOU_TILES },
+  { label: 'Man (Characters)', tiles: MAN_TILES },
+  { label: 'Pin (Circles)', tiles: PIN_TILES },
+  { label: 'Sou (Bamboo)', tiles: SOU_TILES },
   { label: 'Honors', tiles: HONOR_TILES },
 ];
 
@@ -69,50 +84,71 @@ export default function TileRow({ tiles, onChange, maxTiles, label }: TileRowPro
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-700">{label}</span>
-        <span className={`text-sm font-medium ${countOk ? 'text-gray-500' : 'text-red-500'}`}>
+        <span className="text-sm font-medium" style={{ color: '#f5f0e8' }}>{label}</span>
+        <span className="text-sm font-medium" style={{ color: countOk ? '#8b8fa8' : '#e05252' }}>
           {tiles.length}{maxTiles !== undefined ? `/${maxTiles}` : ''}
         </span>
       </div>
 
-      {tiles.length === 0 ? (
-        <div className="text-sm text-gray-400 italic">No tiles yet</div>
-      ) : (
+      {/* Empty state: "Input Manually" CTA when palette is closed */}
+      {tiles.length === 0 && !paletteOpen && !atMax && (
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="w-full py-2.5 rounded-lg text-sm font-medium transition-colors"
+          style={{ border: '1px solid #2a2d3a', color: '#8b8fa8', background: 'transparent' }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#d4a843')}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2a2d3a')}
+        >
+          Input Manually
+        </button>
+      )}
+
+      {/* Tile chips */}
+      {tiles.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tiles.map((tile, i) => (
             <button
               key={i}
               onClick={() => removeTile(i)}
-              className="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 text-sm font-medium active:bg-red-100 active:text-red-700"
+              className="px-2.5 py-1 rounded-md text-sm font-medium flex items-center gap-1 transition-colors"
+              style={{ background: '#222536', border: '1px solid #2a2d3a', color: '#f5f0e8' }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#d4a843')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2a2d3a')}
             >
-              {tileName(tile)} ×
+              {tileName(tile)}{' '}
+              <span style={{ color: '#8b8fa8' }}>×</span>
             </button>
           ))}
         </div>
       )}
 
-      {!atMax && (
+      {/* Add / close palette link — shown when there are tiles or palette is already open */}
+      {!atMax && (tiles.length > 0 || paletteOpen) && (
         <button
           onClick={() => setPaletteOpen(!paletteOpen)}
-          className="text-sm text-blue-600 font-medium underline"
+          className="text-sm font-medium underline"
+          style={{ color: '#d4a843' }}
         >
           {paletteOpen ? 'Close palette' : 'Add tile'}
         </button>
       )}
 
       {paletteOpen && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
+        <div className="rounded-lg p-3 space-y-2" style={{ background: '#1a1d27', border: '1px solid #2a2d3a' }}>
           {PALETTE_ROWS.map(({ label: rowLabel, tiles: rowTiles }) => (
             <div key={rowLabel}>
-              <p className="text-xs text-gray-400 mb-1">{rowLabel}</p>
+              <p className="text-xs mb-1" style={{ color: '#8b8fa8' }}>{rowLabel}</p>
               <div className="flex flex-wrap gap-1">
                 {rowTiles.map((tile, i) => (
                   <button
                     key={i}
                     onClick={() => addTile(tile)}
-                    className="px-2 py-1 rounded bg-white border border-gray-200 text-sm font-medium text-gray-700 active:bg-blue-50"
+                    className="px-2 py-1 rounded text-sm font-medium transition-colors"
+                    style={{ background: '#222536', border: '1px solid #2a2d3a', color: '#f5f0e8' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#d4a843')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2a2d3a')}
                   >
-                    {tileName(tile)}
+                    {tilePaletteName(tile)}
                   </button>
                 ))}
               </div>

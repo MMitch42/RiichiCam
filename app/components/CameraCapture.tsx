@@ -11,7 +11,10 @@ interface CameraCaptureProps {
 
 function Spinner() {
   return (
-    <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+    <span
+      className="inline-block w-4 h-4 rounded-full animate-spin"
+      style={{ border: '2px solid #0f1117', borderTopColor: 'transparent' }}
+    />
   );
 }
 
@@ -146,26 +149,27 @@ export default function CameraCapture({ label, onCapture, isLoading, disabled }:
       <button
         onClick={() => setMenuOpen(true)}
         disabled={allDisabled}
-        className="w-full py-4 rounded-xl bg-blue-500 text-white text-base font-semibold shadow-sm active:bg-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+        className="w-full py-4 rounded-[10px] text-base font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        style={{ background: '#d4a843', color: '#0f1117' }}
       >
         {isLoading ? <Spinner /> : null}
         <span>{label}</span>
       </button>
 
       {pasteError && (
-        <p className="mt-2 text-sm text-red-500 text-center">{pasteError}</p>
+        <p className="mt-2 text-sm text-center" style={{ color: '#e05252' }}>{pasteError}</p>
       )}
 
       {menuOpen && (
         <>
-          {/* Invisible overlay to close on outside click */}
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
 
-          {/* Dropdown below the button */}
           <div
-            className="absolute top-full left-0 right-0 mt-2 z-50 bg-white rounded-xl overflow-hidden"
+            className="absolute top-full left-0 right-0 mt-2 z-50 rounded-[10px] overflow-hidden"
             style={{
-              boxShadow: '0 4px 24px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.07)',
+              background: '#1a1d27',
+              border: '1px solid #2a2d3a',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
               animation: 'menuIn 0.15s ease',
             }}
           >
@@ -174,10 +178,12 @@ export default function CameraCapture({ label, onCapture, isLoading, disabled }:
                 setMenuOpen(false);
                 setTimeout(() => libraryInputRef.current?.click(), 50);
               }}
-              className="w-full flex items-center gap-3 px-5 text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-              style={{ minHeight: 48, borderBottom: '1px solid #f0f0f0' }}
+              className="w-full flex items-center gap-3 px-5 transition-colors"
+              style={{ minHeight: 48, borderBottom: '1px solid #2a2d3a', color: '#f5f0e8' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#222536')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span className="text-gray-500"><IconPhotoLibrary /></span>
+              <span style={{ color: '#8b8fa8' }}><IconPhotoLibrary /></span>
               <span className="text-sm font-medium">Photo Library</span>
             </button>
             <button
@@ -185,18 +191,22 @@ export default function CameraCapture({ label, onCapture, isLoading, disabled }:
                 setMenuOpen(false);
                 setTimeout(() => cameraInputRef.current?.click(), 50);
               }}
-              className="w-full flex items-center gap-3 px-5 text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-              style={{ minHeight: 48, borderBottom: '1px solid #f0f0f0' }}
+              className="w-full flex items-center gap-3 px-5 transition-colors"
+              style={{ minHeight: 48, borderBottom: '1px solid #2a2d3a', color: '#f5f0e8' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#222536')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span className="text-gray-500"><IconCamera /></span>
+              <span style={{ color: '#8b8fa8' }}><IconCamera /></span>
               <span className="text-sm font-medium">Take Photo</span>
             </button>
             <button
               onClick={handlePaste}
-              className="w-full flex items-center gap-3 px-5 text-gray-800 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-              style={{ minHeight: 48 }}
+              className="w-full flex items-center gap-3 px-5 transition-colors"
+              style={{ minHeight: 48, color: '#f5f0e8' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#222536')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
-              <span className="text-gray-500"><IconClipboard /></span>
+              <span style={{ color: '#8b8fa8' }}><IconClipboard /></span>
               <span className="text-sm font-medium">Paste from Clipboard</span>
             </button>
           </div>
