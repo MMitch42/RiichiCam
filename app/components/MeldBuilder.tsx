@@ -11,6 +11,19 @@ interface MeldBuilderProps {
   onMeldsChange: (melds: Meld[]) => void;
 }
 
+const C = {
+  bg:           '#080c12',
+  surface:      '#0f1520',
+  surfaceEl:    '#141c28',
+  gold:         '#c9a227',
+  goldBright:   '#e8c547',
+  goldBorderSm: 'rgba(201,162,39,0.2)',
+  goldBorderXs: 'rgba(201,162,39,0.15)',
+  text:         '#f0ead8',
+  textSec:      '#8a7f6a',
+  red:          '#cc5544',
+};
+
 function tilesEqual(a: Tile, b: Tile): boolean {
   return a.suit === b.suit && a.value === b.value;
 }
@@ -33,21 +46,24 @@ function MeldCard({ meld, onRemove }: { meld: Meld; onRemove: () => void }) {
   const fromLabel = meld.calledFrom ? { left: 'Left', opposite: 'Across', right: 'Right' }[meld.calledFrom] : null;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#222536', border: '1px solid #2a2d3a' }}>
+    <div className="flex items-center gap-2 px-3 py-2 rounded-sm" style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}` }}>
       <div className="flex gap-1 flex-wrap">
         {meld.tiles.map((tile, i) => (
           <TileGraphic key={i} tile={tile} size="small" />
         ))}
       </div>
-      <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#1a1d27', color: '#d4a843' }}>
+      <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm flex-shrink-0 tracking-widest uppercase" style={{ background: C.surface, color: C.gold, border: `1px solid ${C.goldBorderSm}` }}>
         {typeLabel}
       </span>
       {fromLabel && (
-        <span className="text-xs flex-shrink-0" style={{ color: '#8b8fa8' }}>
+        <span className="text-xs flex-shrink-0 font-mono" style={{ color: C.textSec }}>
           from {fromLabel}
         </span>
       )}
-      <button onClick={onRemove} className="ml-auto flex-shrink-0 text-base leading-none" style={{ color: '#8b8fa8' }}>
+      <button onClick={onRemove} className="ml-auto flex-shrink-0 text-base leading-none transition-colors" style={{ color: C.textSec }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = C.red)}
+        onMouseLeave={(e) => (e.currentTarget.style.color = C.textSec)}
+      >
         ×
       </button>
     </div>
@@ -122,16 +138,16 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
         <button
           onClick={() => setSelecting(true)}
           disabled={handTiles.length === 0}
-          className="w-full py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40"
-          style={{ border: '1px solid #2a2d3a', color: '#8b8fa8', background: 'transparent' }}
-          onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.borderColor = '#d4a843'; }}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2a2d3a')}
+          className="w-full py-2 rounded-sm text-xs font-semibold tracking-widest uppercase transition-colors disabled:opacity-40"
+          style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+          onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; } }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
         >
           + Add Meld
         </button>
       ) : (
-        <div className="space-y-3 rounded-lg p-3" style={{ background: '#1a1d27', border: '1px solid #2a2d3a' }}>
-          <p className="text-xs font-medium" style={{ color: '#8b8fa8' }}>
+        <div className="space-y-3 rounded-sm p-3" style={{ background: C.bg, border: `1px solid ${C.goldBorderSm}` }}>
+          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>
             Tap tiles to select, then choose meld type
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -141,14 +157,14 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
                 <button
                   key={i}
                   onClick={() => toggleSelect(i)}
-                  className="flex items-center justify-center flex-shrink-0"
+                  className="flex items-center justify-center flex-shrink-0 transition-all"
                   style={{
-                    border: sel ? '2px solid #d4a843' : '1px solid #d4c9a0',
-                    borderRadius: 6,
-                    boxShadow: sel ? '0 0 0 2px rgba(212,168,67,0.3)' : '0 1px 3px rgba(0,0,0,0.3)',
+                    border: sel ? `2px solid ${C.gold}` : `1px solid rgba(201,162,39,0.3)`,
+                    borderRadius: 4,
+                    boxShadow: sel ? `0 0 0 2px rgba(201,162,39,0.25)` : '0 1px 3px rgba(0,0,0,0.4)',
                     padding: 0,
                     cursor: 'pointer',
-                    background: 'transparent',
+                    background: sel ? 'rgba(201,162,39,0.06)' : 'transparent',
                   }}
                 >
                   <TileGraphic tile={tile} size="normal" />
@@ -157,11 +173,11 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
             })}
           </div>
 
-          {error && <p className="text-sm" style={{ color: '#e05252' }}>{error}</p>}
+          {error && <p className="text-xs" style={{ color: C.red }}>{error}</p>}
 
           {!pendingMeld ? (
             <div>
-              <p className="text-xs mb-2" style={{ color: '#8b8fa8' }}>
+              <p className="text-xs mb-2 font-mono" style={{ color: C.textSec }}>
                 {selectedIndices.length} tile{selectedIndices.length !== 1 ? 's' : ''} selected
               </p>
               <div className="flex gap-2 flex-wrap">
@@ -169,16 +185,20 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
                   <button
                     key={type}
                     onClick={() => validateAndStage(type)}
-                    className="px-4 py-2 rounded-lg text-sm font-semibold capitalize"
-                    style={{ background: '#d4a843', color: '#0f1117' }}
+                    className="px-4 py-2 rounded-sm text-xs font-bold tracking-widest uppercase transition-colors"
+                    style={{ background: C.gold, color: C.bg }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = C.goldBright)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = C.gold)}
                   >
                     {type.charAt(0).toUpperCase() + type.slice(1)}
                   </button>
                 ))}
                 <button
                   onClick={handleCancel}
-                  className="px-4 py-2 rounded-lg text-sm font-medium"
-                  style={{ border: '1px solid #2a2d3a', color: '#8b8fa8', background: 'transparent' }}
+                  className="px-4 py-2 rounded-sm text-xs font-medium transition-colors"
+                  style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
                 >
                   Cancel
                 </button>
@@ -186,17 +206,17 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
             </div>
           ) : (
             <div>
-              <p className="text-sm mb-2" style={{ color: '#f5f0e8' }}>Called from:</p>
+              <p className="text-xs mb-2 font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Called from:</p>
               <div className="flex gap-2 mb-3">
                 {CALLED_FROM_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setCalledFrom(opt.value)}
-                    className="flex-1 py-2 rounded-lg text-sm font-medium"
+                    className="flex-1 py-2 rounded-sm text-xs font-semibold tracking-wide uppercase transition-colors"
                     style={
                       calledFrom === opt.value
-                        ? { background: '#d4a843', color: '#0f1117' }
-                        : { background: '#222536', color: '#8b8fa8', border: '1px solid #2a2d3a' }
+                        ? { background: C.gold, color: C.bg }
+                        : { background: C.surfaceEl, color: C.textSec, border: `1px solid ${C.goldBorderSm}` }
                     }
                   >
                     {opt.label}
@@ -206,15 +226,19 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
               <div className="flex gap-2">
                 <button
                   onClick={confirmMeld}
-                  className="flex-1 py-2 rounded-lg text-sm font-semibold"
-                  style={{ background: '#d4a843', color: '#0f1117' }}
+                  className="flex-1 py-2 rounded-sm text-xs font-bold tracking-widest uppercase transition-colors"
+                  style={{ background: C.gold, color: C.bg }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = C.goldBright)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = C.gold)}
                 >
                   Confirm
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="px-4 py-2 rounded-lg text-sm font-medium"
-                  style={{ border: '1px solid #2a2d3a', color: '#8b8fa8', background: 'transparent' }}
+                  className="px-4 py-2 rounded-sm text-xs font-medium transition-colors"
+                  style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
                 >
                   Cancel
                 </button>
