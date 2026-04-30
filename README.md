@@ -86,4 +86,4 @@ lib/scoring/
 **Tile graphics** — [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles)
 SVG tile images used in the tile picker and score display. Released into the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-**Detection dataset** — Mahjong tile dataset sourced via [Roboflow Universe](https://universe.roboflow.com), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The trained model (`riichicam/1`) was fine-tuned on additional photos of the author's own tile set.
+**Detection dataset** — Mahjong tile dataset sourced via [Roboflow Universe](https://universe.roboflow.com), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). 
