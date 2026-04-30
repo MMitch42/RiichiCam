@@ -35,15 +35,8 @@ function isSequence(tiles: Tile[]): boolean {
   return vals[1] === vals[0] + 1 && vals[2] === vals[1] + 1;
 }
 
-const CALLED_FROM_OPTIONS = [
-  { value: 'left' as const, label: 'Left' },
-  { value: 'opposite' as const, label: 'Across' },
-  { value: 'right' as const, label: 'Right' },
-];
-
 function MeldCard({ meld, onRemove }: { meld: Meld; onRemove: () => void }) {
   const typeLabel = { chi: 'Chi', pon: 'Pon', 'kan-open': 'Kan', 'kan-closed': 'Kan', 'kan-added': 'Kan' }[meld.type];
-  const fromLabel = meld.calledFrom ? { left: 'Left', opposite: 'Across', right: 'Right' }[meld.calledFrom] : null;
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-sm" style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}` }}>
@@ -55,11 +48,6 @@ function MeldCard({ meld, onRemove }: { meld: Meld; onRemove: () => void }) {
       <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm flex-shrink-0 tracking-widest uppercase" style={{ background: C.surface, color: C.gold, border: `1px solid ${C.goldBorderSm}` }}>
         {typeLabel}
       </span>
-      {fromLabel && (
-        <span className="text-xs flex-shrink-0 font-mono" style={{ color: C.textSec }}>
-          from {fromLabel}
-        </span>
-      )}
       <button onClick={onRemove} className="ml-auto flex-shrink-0 text-base leading-none transition-colors" style={{ color: C.textSec }}
         onMouseEnter={(e) => (e.currentTarget.style.color = C.red)}
         onMouseLeave={(e) => (e.currentTarget.style.color = C.textSec)}
@@ -74,8 +62,6 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
   const [selecting, setSelecting] = useState(false);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [pendingMeld, setPendingMeld] = useState<{ type: MeldType; indices: number[] } | null>(null);
-  const [calledFrom, setCalledFrom] = useState<'left' | 'opposite' | 'right' | null>(null);
 
   function toggleSelect(i: number) {
     setSelectedIndices((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]));
@@ -86,11 +72,9 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
     setSelecting(false);
     setSelectedIndices([]);
     setError(null);
-    setPendingMeld(null);
-    setCalledFrom(null);
   }
 
-  function validateAndStage(type: 'chi' | 'pon' | 'kan') {
+  function validateAndCommit(type: 'chi' | 'pon' | 'kan') {
     const selected = selectedIndices.map((i) => handTiles[i]);
     if (type === 'chi') {
       if (selectedIndices.length !== 3) { setError('Chi requires exactly 3 tiles'); return; }
@@ -103,21 +87,11 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
       if (!selected.every((t) => tilesEqual(t, selected[0]))) { setError('Kan requires 4 identical tiles'); return; }
     }
     const meldType: MeldType = type === 'kan' ? 'kan-open' : type;
-    setPendingMeld({ type: meldType, indices: selectedIndices });
-    setCalledFrom(type === 'chi' ? 'left' : null);
-    setError(null);
-  }
-
-  function confirmMeld() {
-    if (!pendingMeld) return;
-    if (!calledFrom) { setError('Select who you called from'); return; }
-    const selectedTiles = pendingMeld.indices.map((i) => handTiles[i]);
     const newMeld: Meld = {
-      type: pendingMeld.type,
-      tiles: selectedTiles as [Tile, Tile, Tile] | [Tile, Tile, Tile, Tile],
-      calledFrom,
+      type: meldType,
+      tiles: selected as [Tile, Tile, Tile] | [Tile, Tile, Tile, Tile],
     };
-    onHandTilesChange(handTiles.filter((_, i) => !pendingMeld.indices.includes(i)));
+    onHandTilesChange(handTiles.filter((_, i) => !selectedIndices.includes(i)));
     onMeldsChange([...melds, newMeld]);
     handleCancel();
   }
@@ -175,76 +149,34 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
 
           {error && <p className="text-xs" style={{ color: C.red }}>{error}</p>}
 
-          {!pendingMeld ? (
-            <div>
-              <p className="text-xs mb-2 font-mono" style={{ color: C.textSec }}>
-                {selectedIndices.length} tile{selectedIndices.length !== 1 ? 's' : ''} selected
-              </p>
-              <div className="flex gap-2 flex-wrap">
-                {(['chi', 'pon', 'kan'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => validateAndStage(type)}
-                    className="px-4 py-2 rounded-sm text-xs font-bold tracking-widest uppercase transition-colors"
-                    style={{ background: C.gold, color: C.bg }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = C.goldBright)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = C.gold)}
-                  >
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </button>
-                ))}
+          <div>
+            <p className="text-xs mb-2 font-mono" style={{ color: C.textSec }}>
+              {selectedIndices.length} tile{selectedIndices.length !== 1 ? 's' : ''} selected
+            </p>
+            <div className="flex gap-2 flex-wrap">
+              {(['chi', 'pon', 'kan'] as const).map((type) => (
                 <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 rounded-sm text-xs font-medium transition-colors"
-                  style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <p className="text-xs mb-2 font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Called from:</p>
-              <div className="flex gap-2 mb-3">
-                {CALLED_FROM_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setCalledFrom(opt.value)}
-                    className="flex-1 py-2 rounded-sm text-xs font-semibold tracking-wide uppercase transition-colors"
-                    style={
-                      calledFrom === opt.value
-                        ? { background: C.gold, color: C.bg }
-                        : { background: C.surfaceEl, color: C.textSec, border: `1px solid ${C.goldBorderSm}` }
-                    }
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={confirmMeld}
-                  className="flex-1 py-2 rounded-sm text-xs font-bold tracking-widest uppercase transition-colors"
+                  key={type}
+                  onClick={() => validateAndCommit(type)}
+                  className="px-4 py-2 rounded-sm text-xs font-bold tracking-widest uppercase transition-colors"
                   style={{ background: C.gold, color: C.bg }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = C.goldBright)}
                   onMouseLeave={(e) => (e.currentTarget.style.background = C.gold)}
                 >
-                  Confirm
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
                 </button>
-                <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 rounded-sm text-xs font-medium transition-colors"
-                  style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
-                >
-                  Cancel
-                </button>
-              </div>
+              ))}
+              <button
+                onClick={handleCancel}
+                className="px-4 py-2 rounded-sm text-xs font-medium transition-colors"
+                style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+              >
+                Cancel
+              </button>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

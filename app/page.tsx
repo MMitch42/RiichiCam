@@ -444,6 +444,8 @@ export default function Home() {
   const [detectError, setDetectError] = useState<string | null>(null);
   const [handScanned, setHandScanned] = useState(false);
   const [doraScanned, setDoraScanned] = useState(false);
+  const [handImageUrl, setHandImageUrl] = useState<string | null>(null);
+  const [doraImageUrl, setDoraImageUrl] = useState<string | null>(null);
 
   // ── Win type ──────────────────────────────────────────────────────────────
   const [winType, setWinType] = useState<'tsumo' | 'ron'>('tsumo');
@@ -498,10 +500,25 @@ export default function Home() {
   }
 
   // ── Detection handlers ────────────────────────────────────────────────────
+  function handleClear() {
+    setHandTiles([]);
+    setWinningTile(null);
+    setDoraIndicatorTiles([]);
+    setMelds([]);
+    setResult(null);
+    setHandScanned(false);
+    setDoraScanned(false);
+    setHandImageUrl(null);
+    setDoraImageUrl(null);
+    setDetectError(null);
+  }
+
   async function handleHandCapture(base64: string) {
     setIsDetectingHand(true);
     setDetectError(null);
     setHandScanned(true);
+    setHandImageUrl(`data:image/jpeg;base64,${base64}`);
+    setResult(null);
     try {
       const res = await fetch('/api/detect', {
         method: 'POST',
@@ -527,6 +544,7 @@ export default function Home() {
     setIsDetectingDora(true);
     setDetectError(null);
     setDoraScanned(true);
+    setDoraImageUrl(`data:image/jpeg;base64,${base64}`);
     try {
       const res = await fetch('/api/detect', {
         method: 'POST',
@@ -633,7 +651,7 @@ export default function Home() {
                 <text x="16" y="22" textAnchor="middle" fontSize="15" fontWeight="700" fill={C.gold} fontFamily="serif">中</text>
               </svg>
             </div>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-bold tracking-[0.12em] uppercase leading-tight" style={{ color: C.gold }}>RiichiCam</h1>
               <p className="text-xs mt-0.5 tracking-widest uppercase" style={{ color: C.textSec }}>Riichi mahjong scorer</p>
             </div>
@@ -651,12 +669,24 @@ export default function Home() {
             onCapture={handleHandCapture}
             isLoading={isDetectingHand}
           />
+          {handImageUrl && (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={handImageUrl}
+                alt="Scanned hand"
+                className="rounded-sm object-cover flex-shrink-0"
+                style={{ height: 64, width: 'auto', maxWidth: 120, border: `1px solid ${C.goldBorderSm}` }}
+              />
+              <p className="text-xs" style={{ color: C.textSec }}>Scan preview — tap tiles below to correct any misdetections.</p>
+            </div>
+          )}
           {showHandRows ? (
             <div className="space-y-4">
               <TileRow
                 label="Hand tiles"
                 tiles={handTiles}
-                onChange={setHandTiles}
+                onChange={(tiles) => setHandTiles(sortTiles(tiles))}
                 maxTiles={13 - meldTileCount}
                 usedTiles={usedTiles}
                 forceOpen={handScanned && handTiles.length + meldTileCount < 13}
@@ -764,13 +794,37 @@ export default function Home() {
             onCapture={handleDoraCapture}
             isLoading={isDetectingDora}
           />
-          <TileRow
-            label="Dora indicators"
-            tiles={doraIndicatorTiles}
-            onChange={setDoraIndicatorTiles}
-            maxTiles={4}
-            usedTiles={usedTiles}
-          />
+          {doraImageUrl && (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={doraImageUrl}
+                alt="Scanned dora"
+                className="rounded-sm object-cover flex-shrink-0"
+                style={{ height: 64, width: 'auto', maxWidth: 120, border: `1px solid ${C.goldBorderSm}` }}
+              />
+              <p className="text-xs" style={{ color: C.textSec }}>Scan preview — correct misdetections below.</p>
+            </div>
+          )}
+          {showDoraRow ? (
+            <TileRow
+              label="Dora indicators"
+              tiles={doraIndicatorTiles}
+              onChange={setDoraIndicatorTiles}
+              maxTiles={4}
+              usedTiles={usedTiles}
+            />
+          ) : (
+            <button
+              onClick={() => setDoraScanned(true)}
+              className="w-full py-2 rounded-sm text-xs font-medium tracking-wide transition-colors"
+              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+            >
+              Input Manually
+            </button>
+          )}
         </section>
 
         {/* ── Detection error ──────────────────────────────────────────── */}
@@ -923,23 +977,73 @@ export default function Home() {
         </section>
 
         {/* ── Score button ──────────────────────────────────────────────── */}
-        <button
-          onClick={handleScore}
-          disabled={!canScore}
-          className="w-full py-4 rounded-sm text-sm font-bold tracking-widest uppercase transition-colors shadow-none"
-          style={{
-            background: canScore ? C.gold : C.surfaceEl,
-            color: canScore ? C.bg : C.textDim,
-            border: canScore ? 'none' : `1px solid ${C.goldBorderSm}`,
-          }}
-          onMouseEnter={(e) => { if (canScore) e.currentTarget.style.background = C.goldBright; }}
-          onMouseLeave={(e) => { if (canScore) e.currentTarget.style.background = C.gold; }}
-        >
-          Score Hand
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleScore}
+            disabled={!canScore}
+            className="flex-1 py-4 rounded-sm text-sm font-bold tracking-widest uppercase transition-colors shadow-none"
+            style={{
+              background: canScore ? C.gold : C.surfaceEl,
+              color: canScore ? C.bg : C.textDim,
+              border: canScore ? 'none' : `1px solid ${C.goldBorderSm}`,
+            }}
+            onMouseEnter={(e) => { if (canScore) e.currentTarget.style.background = C.goldBright; }}
+            onMouseLeave={(e) => { if (canScore) e.currentTarget.style.background = C.gold; }}
+          >
+            Score Hand
+          </button>
+          {(handScanned || handTiles.length > 0 || result) && (
+            <button
+              onClick={handleClear}
+              className="px-4 py-4 rounded-sm text-sm font-semibold tracking-widest uppercase transition-colors"
+              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.redText; e.currentTarget.style.color = C.redText; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
 
         {/* ── Result ───────────────────────────────────────────────────── */}
         {result && <ResultPanel result={result} winType={winType} seatWind={seatWind} />}
+
+        {/* ── Footer ───────────────────────────────────────────────────── */}
+        <footer className="pt-6 pb-8 space-y-4 text-center">
+          <div className="flex justify-center gap-2">
+            <a
+              href="mailto:support.riichicam@gmail.com?subject=RiichiCam Feedback"
+              className="px-3 py-1.5 rounded-sm text-xs font-semibold tracking-wide transition-colors"
+              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent', textDecoration: 'none' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.gold; (e.currentTarget as HTMLAnchorElement).style.color = C.gold; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.goldBorderSm; (e.currentTarget as HTMLAnchorElement).style.color = C.textSec; }}
+            >
+              Give Feedback
+            </a>
+            <a
+              href="#"
+              className="px-3 py-1.5 rounded-sm text-xs font-semibold tracking-wide transition-colors"
+              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent', textDecoration: 'none' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.gold; (e.currentTarget as HTMLAnchorElement).style.color = C.gold; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.goldBorderSm; (e.currentTarget as HTMLAnchorElement).style.color = C.textSec; }}
+            >
+              ☕ Buy Me a Coffee
+            </a>
+          </div>
+          <p className="text-xs" style={{ color: C.textDim }}>
+            Made by{' '}
+            <a
+              href="https://nebulous-measure-795.notion.site/Mitchell-Magid-s-Project-Portfolio-0bc042300af94ff0ac3e65ba37cabf1b"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: C.textSec, textDecoration: 'underline', textUnderlineOffset: '3px' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = C.gold; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = C.textSec; }}
+            >
+              Mitchell Magid
+            </a>
+          </p>
+        </footer>
       </div>
     </main>
   );

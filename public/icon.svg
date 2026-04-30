@@ -1,0 +1,6 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#080c12"/>
+  <rect x="96" y="72" width="320" height="368" rx="18" fill="#0f1520" stroke="#c9a227" stroke-width="10"/>
+  <rect x="110" y="86" width="292" height="340" rx="12" fill="#0f1520"/>
+  <text x="256" y="360" text-anchor="middle" font-size="268" font-weight="700" fill="#c9a227" font-family="serif">中</text>
+</svg>
