@@ -1,6 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  themeColor: "#c9a227",
+};
 
 export const metadata: Metadata = {
   title: "RiichiCam",
@@ -10,7 +14,6 @@ export const metadata: Metadata = {
     icon: "/icon.svg",
     apple: "/icon.svg",
   },
-  themeColor: "#c9a227",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
