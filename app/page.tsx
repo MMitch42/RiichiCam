@@ -189,8 +189,14 @@ const WINNING_PALETTE_ROWS = [
   { label: 'Honors',           tiles: ALL_TILES.filter(t => t.suit === 'honor') },
 ];
 
-function tileMatches(a: Tile, b: Tile) {
+function tileMatchesValue(a: Tile, b: Tile) {
   return a.suit === b.suit && a.value === b.value;
+}
+
+function tileMatchesExact(a: Tile, b: Tile) {
+  const aAka = a.suit !== 'honor' ? !!a.isAka : false;
+  const bAka = b.suit !== 'honor' ? !!b.isAka : false;
+  return a.suit === b.suit && a.value === b.value && aAka === bAka;
 }
 
 function tileLabel(tile: Tile): string {
@@ -259,10 +265,12 @@ function ResultPanel({
   result,
   winType,
   seatWind,
+  honba,
 }: {
   result: ScoreResult;
   winType: 'tsumo' | 'ron';
   seatWind: WindValue;
+  honba: number;
 }) {
   const [fuOpen, setFuOpen] = useState(false);
   const [openTooltip, setOpenTooltip] = useState<string | null>(null);
@@ -281,6 +289,18 @@ function ResultPanel({
   const grandTotal = result.totalHan + totalDora;
   const isDealer = seatWind === 'east';
 
+  const honbaBonus = honba * 300;
+  const adjustedTotal = result.points.total + honbaBonus;
+
+  // Per-player adjusted amounts for tsumo
+  const tsumoNonDealer = result.points.tsumo?.nonDealerPays ?? 0;
+  const tsumoDealer = result.points.tsumo?.dealerPays ?? 0;
+  const adjNonDealer = tsumoNonDealer + honba * 100;
+  const adjDealer = tsumoDealer + honba * 100;
+
+  // Adjusted ron
+  const adjRon = (result.points.ron ?? 0) + honbaBonus;
+
   return (
     <div className="rounded-sm overflow-hidden" style={{ background: C.bg, border: `1px solid ${C.goldBorder}`, borderTop: `2px solid ${C.gold}` }}>
       {/* Points header */}
@@ -288,7 +308,7 @@ function ResultPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="leading-none font-bold tabular-nums" style={{ fontSize: '3.5rem', color: C.goldBright, fontVariantNumeric: 'tabular-nums' }}>
-              {result.points.total.toLocaleString()}
+              {adjustedTotal.toLocaleString()}
             </p>
             <p className="text-xs mt-1 font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>points</p>
           </div>
@@ -305,22 +325,38 @@ function ResultPanel({
           isDealer ? (
             <p className="text-sm mt-4 font-mono" style={{ color: C.text }}>
               Each player pays{' '}
-              <span className="font-semibold" style={{ color: C.gold }}>{result.points.tsumo.nonDealerPays.toLocaleString()}</span>
+              <span className="font-semibold" style={{ color: C.gold }}>{adjNonDealer.toLocaleString()}</span>
             </p>
           ) : (
             <p className="text-sm mt-4 font-mono" style={{ color: C.text }}>
               Dealer{' '}
-              <span className="font-semibold" style={{ color: C.gold }}>{result.points.tsumo.dealerPays.toLocaleString()}</span>
+              <span className="font-semibold" style={{ color: C.gold }}>{adjDealer.toLocaleString()}</span>
               <span style={{ color: C.textSec }}> · </span>Each non-dealer{' '}
-              <span className="font-semibold" style={{ color: C.gold }}>{result.points.tsumo.nonDealerPays.toLocaleString()}</span>
+              <span className="font-semibold" style={{ color: C.gold }}>{adjNonDealer.toLocaleString()}</span>
             </p>
           )
         )}
         {winType === 'ron' && result.points.ron !== undefined && (
           <p className="text-sm mt-4 font-mono" style={{ color: C.text }}>
             Opponent pays{' '}
-            <span className="font-semibold" style={{ color: C.gold }}>{result.points.ron.toLocaleString()}</span>
+            <span className="font-semibold" style={{ color: C.gold }}>{adjRon.toLocaleString()}</span>
           </p>
+        )}
+        {honba > 0 && (
+          <div className="mt-3 pt-3 space-y-1 font-mono text-xs" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <div className="flex justify-between">
+              <span style={{ color: C.textSec }}>Hand</span>
+              <span style={{ color: C.textSec }}>{result.points.total.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: C.textSec }}>Honba ({honba} × 300)</span>
+              <span style={{ color: C.textSec }}>+{honbaBonus.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between font-semibold pt-1" style={{ borderTop: `1px solid ${C.goldBorderXs}`, color: C.text }}>
+              <span>Total</span>
+              <span>{adjustedTotal.toLocaleString()}</span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -446,9 +482,16 @@ export default function Home() {
   const [doraScanned, setDoraScanned] = useState(false);
   const [handImageUrl, setHandImageUrl] = useState<string | null>(null);
   const [doraImageUrl, setDoraImageUrl] = useState<string | null>(null);
+  const [handForceRevision, setHandForceRevision] = useState(0);
+  const [doraPaletteForced, setDoraPaletteForced] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   // ── Win type ──────────────────────────────────────────────────────────────
   const [winType, setWinType] = useState<'tsumo' | 'ron'>('tsumo');
+
+  // ── Honba ─────────────────────────────────────────────────────────────────
+  const [honba, setHonba] = useState(0);
+  const [honbaInfoOpen, setHonbaInfoOpen] = useState(false);
 
   // ── Dealer / seat wind (synced) ───────────────────────────────────────────
   const [dealer, setDealer] = useState(false);
@@ -511,12 +554,17 @@ export default function Home() {
     setHandImageUrl(null);
     setDoraImageUrl(null);
     setDetectError(null);
+    setHandForceRevision(0);
+    setDoraPaletteForced(false);
+    setLightboxUrl(null);
+    setHonba(0);
   }
 
   async function handleHandCapture(base64: string) {
     setIsDetectingHand(true);
     setDetectError(null);
     setHandScanned(true);
+    setHandForceRevision((r) => r + 1);
     setHandImageUrl(`data:image/jpeg;base64,${base64}`);
     setResult(null);
     try {
@@ -544,6 +592,7 @@ export default function Home() {
     setIsDetectingDora(true);
     setDetectError(null);
     setDoraScanned(true);
+    setDoraPaletteForced(true);
     setDoraImageUrl(`data:image/jpeg;base64,${base64}`);
     try {
       const res = await fetch('/api/detect', {
@@ -594,6 +643,11 @@ export default function Home() {
     const hand = buildHand();
     if (!hand) return;
     setResult(score(hand));
+  }
+
+  function handleMeldsChange(newMelds: Meld[]) {
+    if (newMelds.length > melds.length) setHandForceRevision((r) => r + 1);
+    setMelds(newMelds);
   }
 
   const meldTileCount = melds.reduce((s, m) => s + m.tiles.length, 0);
@@ -678,10 +732,12 @@ export default function Home() {
               <img
                 src={handImageUrl}
                 alt="Scanned hand"
-                className="rounded-sm object-cover flex-shrink-0"
+                onClick={() => setLightboxUrl(handImageUrl)}
+                className="rounded-sm object-cover flex-shrink-0 cursor-pointer"
                 style={{ height: 64, width: 'auto', maxWidth: 120, border: `1px solid ${C.goldBorderSm}` }}
+                title="Tap to enlarge"
               />
-              <p className="text-xs" style={{ color: C.textSec }}>Scan preview — tap tiles below to correct any misdetections.</p>
+              <p className="text-xs" style={{ color: C.textSec }}>Tap preview to enlarge · correct misdetections below.</p>
             </div>
           )}
           {showHandRows ? (
@@ -692,7 +748,8 @@ export default function Home() {
                 onChange={(tiles) => setHandTiles(sortTiles(tiles))}
                 maxTiles={13 + numKans - meldTileCount}
                 usedTiles={usedTiles}
-                forceOpen={handScanned && handTiles.length + meldTileCount < 13 + numKans}
+                forceOpen={showHandRows && handTiles.length + meldTileCount < 13 + numKans}
+                forceOpenRevision={handForceRevision}
               />
 
               {(handScanned || handTiles.length > 0) && (
@@ -700,7 +757,7 @@ export default function Home() {
                   handTiles={handTiles}
                   melds={melds}
                   onHandTilesChange={setHandTiles}
-                  onMeldsChange={setMelds}
+                  onMeldsChange={handleMeldsChange}
                 />
               )}
 
@@ -723,14 +780,20 @@ export default function Home() {
                       <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: C.textSec }}>
                         Winning Tile
                       </p>
+                      {winningTile && (
+                        <div className="mb-3 flex items-center gap-2">
+                          <TileGraphic tile={winningTile} size="normal" />
+                          <span className="text-xs" style={{ color: C.textSec }}>{tileLabel(winningTile)}</span>
+                        </div>
+                      )}
                       <div className="rounded-sm p-3 space-y-3" style={{ background: C.bg, border: `1px solid ${C.goldBorderSm}` }}>
                         {WINNING_PALETTE_ROWS.map(({ label: rowLabel, tiles: rowTiles }) => (
                           <div key={rowLabel}>
                             <p className="text-xs font-semibold tracking-widest uppercase mb-1.5" style={{ color: C.textSec }}>{rowLabel}</p>
                             <div className="flex flex-wrap gap-1">
                               {rowTiles.map((tile, i) => {
-                                const isWait = tenpaiWaits.some(w => tileMatches(w, tile));
-                                const isSelected = winningTile !== null && tileMatches(winningTile, tile);
+                                const isWait = tenpaiWaits.some(w => tileMatchesValue(w, tile));
+                                const isSelected = winningTile !== null && tileMatchesExact(winningTile, tile);
                                 return (
                                   <button
                                     key={i}
@@ -757,12 +820,6 @@ export default function Home() {
                           </div>
                         ))}
                       </div>
-                      {winningTile && (
-                        <div className="mt-3 flex items-center gap-2">
-                          <TileGraphic tile={winningTile} size="normal" />
-                          <span className="text-xs" style={{ color: C.textSec }}>{tileLabel(winningTile)}</span>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
@@ -774,7 +831,7 @@ export default function Home() {
                 Tap &lsquo;Scan Hand&rsquo; to detect tiles automatically
               </p>
               <button
-                onClick={() => setHandScanned(true)}
+                onClick={() => { setHandScanned(true); setHandForceRevision((r) => r + 1); }}
                 className="w-full py-2.5 rounded-sm text-sm font-medium tracking-wide transition-colors"
                 style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
@@ -803,10 +860,12 @@ export default function Home() {
               <img
                 src={doraImageUrl}
                 alt="Scanned dora"
-                className="rounded-sm object-cover flex-shrink-0"
+                onClick={() => setLightboxUrl(doraImageUrl)}
+                className="rounded-sm object-cover flex-shrink-0 cursor-pointer"
                 style={{ height: 64, width: 'auto', maxWidth: 120, border: `1px solid ${C.goldBorderSm}` }}
+                title="Tap to enlarge"
               />
-              <p className="text-xs" style={{ color: C.textSec }}>Scan preview — correct misdetections below.</p>
+              <p className="text-xs" style={{ color: C.textSec }}>Tap preview to enlarge · correct misdetections below.</p>
             </div>
           )}
           {showDoraRow ? (
@@ -816,10 +875,12 @@ export default function Home() {
               onChange={setDoraIndicatorTiles}
               maxTiles={4}
               usedTiles={usedTiles}
+              forceOpen={doraPaletteForced && doraIndicatorTiles.length === 0}
+              onForceClose={() => setDoraPaletteForced(false)}
             />
           ) : (
             <button
-              onClick={() => setDoraScanned(true)}
+              onClick={() => { setDoraScanned(true); setDoraPaletteForced(true); }}
               className="w-full py-2 rounded-sm text-xs font-medium tracking-wide transition-colors"
               style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
@@ -861,6 +922,53 @@ export default function Home() {
                   {wt === 'tsumo' ? 'Tsumo' : 'Ron'}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Honba */}
+          <div style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <div className="py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium" style={{ color: C.text }}>Honba</span>
+                  <button
+                    onClick={() => setHonbaInfoOpen(!honbaInfoOpen)}
+                    className="w-4 h-4 rounded-sm text-xs font-bold flex items-center justify-center transition-colors"
+                    style={{
+                      background: honbaInfoOpen ? C.goldMuted : 'transparent',
+                      color: honbaInfoOpen ? C.gold : C.textSec,
+                      border: `1px solid ${honbaInfoOpen ? C.gold : C.goldBorderSm}`,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ?
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setHonba(Math.max(0, honba - 1))}
+                    disabled={honba <= 0}
+                    className="w-8 h-8 text-lg font-medium flex items-center justify-center rounded-sm disabled:opacity-40 transition-colors"
+                    style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${C.goldBorderSm}` }}
+                  >
+                    −
+                  </button>
+                  <span className="w-5 text-center text-base font-semibold tabular-nums" style={{ color: C.text }}>{honba}</span>
+                  <button
+                    onClick={() => setHonba(Math.min(8, honba + 1))}
+                    disabled={honba >= 8}
+                    className="w-8 h-8 text-lg font-medium flex items-center justify-center rounded-sm disabled:opacity-40 transition-colors"
+                    style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${C.goldBorderSm}` }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              {honbaInfoOpen && (
+                <p className="text-xs mt-1.5 pr-4 leading-relaxed" style={{ color: C.textSec }}>
+                  Each honba stick on the table adds 300 pts to the total win (100 pts from each player for tsumo, 300 pts from the discarder for ron).
+                </p>
+              )}
             </div>
           </div>
 
@@ -1009,7 +1117,7 @@ export default function Home() {
         </div>
 
         {/* ── Result ───────────────────────────────────────────────────── */}
-        {result && <ResultPanel result={result} winType={winType} seatWind={seatWind} />}
+        {result && <ResultPanel result={result} winType={winType} seatWind={seatWind} honba={honba} />}
 
         {/* ── Footer ───────────────────────────────────────────────────── */}
         <footer className="pt-6 pb-8 space-y-4 text-center">
@@ -1023,6 +1131,7 @@ export default function Home() {
             >
               Give Feedback
             </a>
+            {/* Buy Me a Coffee — hidden until account is connected
             <a
               href="#"
               className="px-3 py-1.5 rounded-sm text-xs font-semibold tracking-wide transition-colors"
@@ -1032,6 +1141,7 @@ export default function Home() {
             >
               ☕ Buy Me a Coffee
             </a>
+            */}
           </div>
           <p className="text-xs" style={{ color: C.textDim }}>
             Made by{' '}
@@ -1048,6 +1158,32 @@ export default function Home() {
           </p>
         </footer>
       </div>
+
+      {/* ── Lightbox ─────────────────────────────────────────────────────── */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(8,12,18,0.92)' }}
+          onClick={() => setLightboxUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="Scan preview"
+            className="rounded-sm max-w-full max-h-full object-contain"
+            style={{ border: `1px solid ${C.goldBorderSm}`, maxHeight: '80vh' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-8 h-8 rounded-sm text-sm font-bold flex items-center justify-center transition-colors"
+            style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${C.goldBorderSm}` }}
+            aria-label="Close preview"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </main>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import type { Tile, Meld, MeldType } from '@/lib/scoring/types';
+import { useState, useMemo } from 'react';
+import type { Tile, Meld } from '@/lib/scoring/types';
 import TileGraphic from './TileGraphic';
 
 interface MeldBuilderProps {
@@ -28,22 +28,12 @@ function tilesEqual(a: Tile, b: Tile): boolean {
   return a.suit === b.suit && a.value === b.value;
 }
 
-function isSequence(tiles: Tile[]): boolean {
-  if (tiles.some((t) => t.suit === 'honor')) return false;
-  if (new Set(tiles.map((t) => t.suit)).size > 1) return false;
-  const vals = tiles.map((t) => t.value as number).sort((a, b) => a - b);
-  return vals[1] === vals[0] + 1 && vals[2] === vals[1] + 1;
-}
-
 function MeldCard({ meld, onRemove }: { meld: Meld; onRemove: () => void }) {
   const typeLabel = { chi: 'Chi', pon: 'Pon', 'kan-open': 'Kan', 'kan-closed': 'Kan', 'kan-added': 'Kan' }[meld.type];
-
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-sm" style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}` }}>
       <div className="flex gap-1 flex-wrap">
-        {meld.tiles.map((tile, i) => (
-          <TileGraphic key={i} tile={tile} size="small" />
-        ))}
+        {meld.tiles.map((tile, i) => <TileGraphic key={i} tile={tile} size="small" />)}
       </div>
       <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm flex-shrink-0 tracking-widest uppercase" style={{ background: C.surface, color: C.gold, border: `1px solid ${C.goldBorderSm}` }}>
         {typeLabel}
@@ -58,42 +48,111 @@ function MeldCard({ meld, onRemove }: { meld: Meld; onRemove: () => void }) {
   );
 }
 
+// One clickable card representing a meld option (chi sequence, pon, or kan)
+function MeldOptionCard({
+  tiles,
+  type,
+  highlightIdx,
+  onClick,
+}: {
+  tiles: Tile[];
+  type: string;
+  highlightIdx?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-sm transition-colors text-left"
+      style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}` }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.gold)}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.goldBorderSm)}
+    >
+      <div className="flex gap-1 items-center">
+        {tiles.map((tile, i) => (
+          <span
+            key={i}
+            style={{
+              outline: i === highlightIdx ? `2px solid ${C.gold}` : undefined,
+              borderRadius: 3,
+              display: 'flex',
+            }}
+          >
+            <TileGraphic tile={tile} size="small" />
+          </span>
+        ))}
+      </div>
+      <span className="text-xs font-bold px-1.5 py-0.5 rounded-sm flex-shrink-0 tracking-widest uppercase" style={{ background: C.surface, color: C.gold, border: `1px solid ${C.goldBorderSm}` }}>
+        {type}
+      </span>
+    </button>
+  );
+}
+
 export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMeldsChange }: MeldBuilderProps) {
-  const [selecting, setSelecting] = useState(false);
-  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [active, setActive] = useState(false);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
-  function toggleSelect(i: number) {
-    setSelectedIndices((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]));
-    setError(null);
-  }
+  const selectedTile = selectedIdx !== null ? handTiles[selectedIdx] : null;
 
-  function handleCancel() {
-    setSelecting(false);
-    setSelectedIndices([]);
-    setError(null);
-  }
-
-  function validateAndCommit(type: 'chi' | 'pon' | 'kan') {
-    const selected = selectedIndices.map((i) => handTiles[i]);
-    if (type === 'chi') {
-      if (selectedIndices.length !== 3) { setError('Chi requires exactly 3 tiles'); return; }
-      if (!isSequence(selected)) { setError('Chi requires 3 consecutive tiles of the same suit'); return; }
-    } else if (type === 'pon') {
-      if (selectedIndices.length !== 3) { setError('Pon requires exactly 3 tiles'); return; }
-      if (!selected.every((t) => tilesEqual(t, selected[0]))) { setError('Pon requires 3 identical tiles'); return; }
-    } else if (type === 'kan') {
-      if (selectedIndices.length !== 4) { setError('Kan requires exactly 4 tiles'); return; }
-      if (!selected.every((t) => tilesEqual(t, selected[0]))) { setError('Kan requires 4 identical tiles'); return; }
+  // All valid chi sequences containing the selected tile, as sorted index arrays
+  const possibleChis = useMemo((): number[][] => {
+    if (!selectedTile || selectedTile.suit === 'honor') return [];
+    const v = selectedTile.value as number;
+    const s = selectedTile.suit;
+    const seqs = [[v - 2, v - 1, v], [v - 1, v, v + 1], [v, v + 1, v + 2]].filter(
+      (seq) => seq.every((x) => x >= 1 && x <= 9)
+    );
+    const results: number[][] = [];
+    for (const seq of seqs) {
+      const usedIndices = [selectedIdx!];
+      let valid = true;
+      for (const val of seq) {
+        if (val === v) continue; // selectedIdx covers this position
+        const idx = handTiles.findIndex(
+          (t, i) => !usedIndices.includes(i) && t.suit === s && t.value === val
+        );
+        if (idx === -1) { valid = false; break; }
+        usedIndices.push(idx);
+      }
+      if (valid) {
+        results.push(
+          [...usedIndices].sort((a, b) => (handTiles[a].value as number) - (handTiles[b].value as number))
+        );
+      }
     }
-    const meldType: MeldType = type === 'kan' ? 'kan-open' : type;
-    const newMeld: Meld = {
-      type: meldType,
-      tiles: selected as [Tile, Tile, Tile] | [Tile, Tile, Tile, Tile],
-    };
-    onHandTilesChange(handTiles.filter((_, i) => !selectedIndices.includes(i)));
-    onMeldsChange([...melds, newMeld]);
-    handleCancel();
+    return results;
+  }, [selectedTile, selectedIdx, handTiles]);
+
+  // Indices for a pon (selected tile + 2 matching tiles)
+  const ponIndices = useMemo((): number[] | null => {
+    if (!selectedTile) return null;
+    const others: number[] = [];
+    for (let i = 0; i < handTiles.length && others.length < 2; i++) {
+      if (i !== selectedIdx && tilesEqual(handTiles[i], selectedTile)) others.push(i);
+    }
+    return others.length >= 2 ? [selectedIdx!, ...others] : null;
+  }, [selectedTile, selectedIdx, handTiles]);
+
+  // Indices for a kan (selected tile + 3 matching tiles)
+  const kanIndices = useMemo((): number[] | null => {
+    if (!selectedTile) return null;
+    const others: number[] = [];
+    for (let i = 0; i < handTiles.length && others.length < 3; i++) {
+      if (i !== selectedIdx && tilesEqual(handTiles[i], selectedTile)) others.push(i);
+    }
+    return others.length >= 3 ? [selectedIdx!, ...others] : null;
+  }, [selectedTile, selectedIdx, handTiles]);
+
+  const noValidMelds = selectedTile !== null && possibleChis.length === 0 && !ponIndices && !kanIndices;
+
+  function commit(type: Meld['type'], indices: number[]) {
+    const tiles = indices.map((i) => handTiles[i]);
+    const meld: Meld = { type, tiles: tiles as Meld['tiles'] };
+    onHandTilesChange(handTiles.filter((_, i) => !indices.includes(i)));
+    onMeldsChange([...melds, meld]);
+    setActive(false);
+    setSelectedIdx(null);
   }
 
   function removeMeld(idx: number) {
@@ -102,15 +161,20 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
     onMeldsChange(melds.filter((_, i) => i !== idx));
   }
 
+  function cancel() {
+    setActive(false);
+    setSelectedIdx(null);
+  }
+
   return (
     <div className="space-y-2">
       {melds.map((meld, i) => (
         <MeldCard key={i} meld={meld} onRemove={() => removeMeld(i)} />
       ))}
 
-      {!selecting ? (
+      {!active ? (
         <button
-          onClick={() => setSelecting(true)}
+          onClick={() => setActive(true)}
           disabled={handTiles.length === 0}
           className="w-full py-2 rounded-sm text-xs font-semibold tracking-widest uppercase transition-colors disabled:opacity-40"
           style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
@@ -119,64 +183,117 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
         >
           + Add Meld
         </button>
-      ) : (
+      ) : selectedIdx === null ? (
+        // ── Stage 1: pick a tile ─────────────────────────────────────────
         <div className="space-y-3 rounded-sm p-3" style={{ background: C.bg, border: `1px solid ${C.goldBorderSm}` }}>
           <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>
-            Tap tiles to select, then choose meld type
+            Tap a tile to build a meld
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {handTiles.map((tile, i) => {
-              const sel = selectedIndices.includes(i);
-              return (
-                <button
-                  key={i}
-                  onClick={() => toggleSelect(i)}
-                  className="flex items-center justify-center flex-shrink-0 transition-all"
-                  style={{
-                    border: sel ? `2px solid ${C.gold}` : `1px solid rgba(201,162,39,0.3)`,
-                    borderRadius: 4,
-                    boxShadow: sel ? `0 0 0 2px rgba(201,162,39,0.25)` : '0 1px 3px rgba(0,0,0,0.4)',
-                    padding: 0,
-                    cursor: 'pointer',
-                    background: sel ? 'rgba(201,162,39,0.06)' : 'transparent',
-                  }}
-                >
-                  <TileGraphic tile={tile} size="normal" />
-                </button>
-              );
-            })}
-          </div>
-
-          {error && <p className="text-xs" style={{ color: C.red }}>{error}</p>}
-
-          <div>
-            <p className="text-xs mb-2 font-mono" style={{ color: C.textSec }}>
-              {selectedIndices.length} tile{selectedIndices.length !== 1 ? 's' : ''} selected
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              {(['chi', 'pon', 'kan'] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => validateAndCommit(type)}
-                  className="px-4 py-2 rounded-sm text-xs font-bold tracking-widest uppercase transition-colors"
-                  style={{ background: C.gold, color: C.bg }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = C.goldBright)}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = C.gold)}
-                >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </button>
-              ))}
+            {handTiles.map((tile, i) => (
               <button
-                onClick={handleCancel}
-                className="px-4 py-2 rounded-sm text-xs font-medium transition-colors"
-                style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+                key={i}
+                onClick={() => setSelectedIdx(i)}
+                className="flex items-center justify-center flex-shrink-0 transition-all rounded"
+                style={{
+                  border: `1px solid ${C.goldBorderSm}`,
+                  padding: 0,
+                  cursor: 'pointer',
+                  background: 'transparent',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.gold)}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.goldBorderSm)}
               >
-                Cancel
+                <TileGraphic tile={tile} size="normal" />
               </button>
-            </div>
+            ))}
           </div>
+          <button
+            onClick={cancel}
+            className="text-xs font-medium transition-colors"
+            style={{ color: C.textSec }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = C.gold)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = C.textSec)}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        // ── Stage 2: pick meld type ──────────────────────────────────────
+        <div className="space-y-2 rounded-sm p-3" style={{ background: C.bg, border: `1px solid ${C.goldBorderSm}` }}>
+          <div className="flex items-center gap-2 pb-1" style={{ borderBottom: `1px solid ${C.goldBorderXs}` }}>
+            <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Meld with</span>
+            <TileGraphic tile={selectedTile!} size="small" />
+            <button
+              onClick={() => setSelectedIdx(null)}
+              className="ml-auto text-xs font-medium transition-colors"
+              style={{ color: C.textSec }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = C.gold)}
+              onMouseLeave={(e) => (e.currentTarget.style.color = C.textSec)}
+            >
+              Change tile
+            </button>
+          </div>
+
+          {/* Chi options — one card per valid sequence */}
+          {possibleChis.map((indices, i) => {
+            const tiles = indices.map((idx) => handTiles[idx]);
+            const highlightPos = indices.indexOf(selectedIdx!);
+            return (
+              <MeldOptionCard
+                key={i}
+                tiles={tiles}
+                type="Chi"
+                highlightIdx={highlightPos}
+                onClick={() => commit('chi', indices)}
+              />
+            );
+          })}
+
+          {/* Pon */}
+          {ponIndices && (
+            <MeldOptionCard
+              tiles={ponIndices.map((idx) => handTiles[idx])}
+              type="Pon"
+              highlightIdx={0}
+              onClick={() => commit('pon', ponIndices)}
+            />
+          )}
+
+          {/* Kan */}
+          {kanIndices && (
+            <MeldOptionCard
+              tiles={kanIndices.map((idx) => handTiles[idx])}
+              type="Kan"
+              highlightIdx={0}
+              onClick={() => commit('kan-open', kanIndices)}
+            />
+          )}
+
+          {noValidMelds && (
+            <p className="text-xs py-1" style={{ color: C.red }}>
+              No valid melds for this tile.{' '}
+              <button
+                onClick={() => setSelectedIdx(null)}
+                className="underline transition-colors"
+                style={{ color: C.textSec }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = C.gold)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = C.textSec)}
+              >
+                Pick another
+              </button>
+            </p>
+          )}
+
+          <button
+            onClick={cancel}
+            className="text-xs font-medium transition-colors pt-1"
+            style={{ color: C.textSec }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = C.gold)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = C.textSec)}
+          >
+            Cancel
+          </button>
         </div>
       )}
     </div>
