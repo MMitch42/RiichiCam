@@ -1036,7 +1036,7 @@ export default function Home() {
           <p className="text-xs" style={{ color: C.textDim }}>
             Made by{' '}
             <a
-              href="https://nebulous-measure-795.notion.site/Mitchell-Magid-s-Project-Portfolio-0bc042300af94ff0ac3e65ba37cabf1b"
+              href="https://www.linkedin.com/in/mitchell-magid-3b31033a3"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: C.textSec, textDecoration: 'underline', textUnderlineOffset: '3px' }}
