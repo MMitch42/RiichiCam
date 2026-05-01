@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Tile, SuitedValue } from '@/lib/scoring/types';
 import TileGraphic from './TileGraphic';
 
@@ -12,6 +12,8 @@ interface TileRowProps {
   usedTiles?: Tile[];
   isWinning?: boolean;
   forceOpen?: boolean;
+  onForceClose?: () => void;
+  forceOpenRevision?: number;
 }
 
 const C = {
@@ -79,9 +81,25 @@ const PALETTE_ROWS = [
   { label: 'Honors', tiles: HONOR_TILES },
 ];
 
-export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = [], forceOpen = false }: TileRowProps) {
+export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = [], forceOpen = false, onForceClose, forceOpenRevision }: TileRowProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const effectiveOpen = forceOpen || paletteOpen;
+  const [manuallyClosed, setManuallyClosed] = useState(false);
+  const prevForceOpenRef = useRef(forceOpen);
+
+  // Reset manual-close override when a new force-open signal arrives (e.g. new scan)
+  useEffect(() => {
+    if (forceOpen && !prevForceOpenRef.current) {
+      setManuallyClosed(false);
+    }
+    prevForceOpenRef.current = forceOpen;
+  }, [forceOpen]);
+
+  // Reset manual-close override when an external event signals it (e.g. meld added)
+  useEffect(() => {
+    if (forceOpenRevision !== undefined) setManuallyClosed(false);
+  }, [forceOpenRevision]);
+
+  const effectiveOpen = (forceOpen && !manuallyClosed) || paletteOpen;
 
   const atMax = maxTiles !== undefined && tiles.length >= maxTiles;
   const countOk = maxTiles === undefined || tiles.length === maxTiles;
@@ -112,6 +130,8 @@ export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = 
     onChange(next);
     if (maxTiles !== undefined && next.length >= maxTiles) {
       setPaletteOpen(false);
+      setManuallyClosed(true);
+      if (forceOpen) onForceClose?.();
     }
   }
 
@@ -161,7 +181,16 @@ export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = 
 
       {!atMax && (tiles.length > 0 || effectiveOpen) && (
         <button
-          onClick={() => setPaletteOpen(!paletteOpen)}
+          onClick={() => {
+            if (effectiveOpen) {
+              setPaletteOpen(false);
+              setManuallyClosed(true);
+              if (forceOpen) onForceClose?.();
+            } else {
+              setPaletteOpen(true);
+              setManuallyClosed(false);
+            }
+          }}
           className="text-xs font-semibold tracking-wide uppercase underline transition-colors"
           style={{ color: C.gold }}
         >
