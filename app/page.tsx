@@ -838,6 +838,7 @@ export default function Home() {
                 tiles={handTiles}
                 onChange={(tiles) => setHandTiles(sortTiles(tiles))}
                 maxTiles={13 + numKans - meldTileCount}
+                minTiles={13 + numKans - meldTileCount}
                 usedTiles={usedTiles}
                 forceOpen={showHandRows && handTiles.length + meldTileCount < 13 + numKans}
                 forceOpenRevision={handForceRevision}

@@ -8,6 +8,7 @@ interface TileRowProps {
   tiles: Tile[];
   onChange: (tiles: Tile[]) => void;
   maxTiles?: number;
+  minTiles?: number;
   label: string;
   usedTiles?: Tile[];
   isWinning?: boolean;
@@ -82,7 +83,7 @@ const PALETTE_ROWS = [
   { label: 'Honors', tiles: HONOR_TILES },
 ];
 
-export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = [], forceOpen = false, onForceClose, forceOpenRevision, readOnly = false }: TileRowProps) {
+export default function TileRow({ tiles, onChange, maxTiles, minTiles = 0, label, usedTiles = [], forceOpen = false, onForceClose, forceOpenRevision, readOnly = false }: TileRowProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [manuallyClosed, setManuallyClosed] = useState(false);
   const prevForceOpenRef = useRef(forceOpen);
@@ -103,7 +104,7 @@ export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = 
   const effectiveOpen = !readOnly && ((forceOpen && !manuallyClosed) || paletteOpen);
 
   const atMax = maxTiles !== undefined && tiles.length >= maxTiles;
-  const countOk = maxTiles === undefined || tiles.length === maxTiles;
+  const countOk = tiles.length >= minTiles;
 
   function isAkaTile(tile: Tile): boolean {
     return tile.suit !== 'honor' && !!tile.isAka;
