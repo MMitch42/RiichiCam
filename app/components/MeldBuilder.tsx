@@ -137,16 +137,15 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
     return others.length >= 2 ? [selectedIdx!, ...others] : null;
   }, [selectedTile, selectedIdx, handTiles]);
 
-  // Indices for a kan. Requires at least 1 other matching tile in hand (2 total);
-  // missing copies up to 4 are synthesized in commit. This covers cases where
-  // detection missed some tiles but the user knows they have a valid kan.
+  // Indices for a kan. Requires at least 2 other matching tiles in hand (3 total);
+  // the missing 4th copy is synthesized in commit.
   const kanIndices = useMemo((): number[] | null => {
     if (!selectedTile) return null;
     const others: number[] = [];
     for (let i = 0; i < handTiles.length && others.length < 3; i++) {
       if (i !== selectedIdx && tilesEqual(handTiles[i], selectedTile)) others.push(i);
     }
-    return others.length >= 1 ? [selectedIdx!, ...others.slice(0, 3)] : null;
+    return others.length >= 2 ? [selectedIdx!, ...others.slice(0, 3)] : null;
   }, [selectedTile, selectedIdx, handTiles]);
 
   const noValidMelds = selectedTile !== null && possibleChis.length === 0 && !ponIndices && !kanIndices;
