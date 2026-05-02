@@ -15,7 +15,7 @@ interface RoboflowResponse {
 }
 
 async function callRoboflow(apiKey: string, image: string): Promise<RoboflowResponse> {
-  const url = `https://detect.roboflow.com/riichicam/1?api_key=${apiKey}`;
+  const url = `https://detect.roboflow.com/riichicam/3?api_key=${apiKey}`;
   const res = await fetch(url, {
     method: 'POST',
     body: image,
