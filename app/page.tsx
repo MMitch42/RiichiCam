@@ -974,7 +974,7 @@ export default function Home() {
               onChange={setDoraIndicatorTiles}
               maxTiles={8}
               usedTiles={usedTiles}
-              forceOpen={doraPaletteForced && doraIndicatorTiles.length === 0}
+              forceOpen={doraPaletteForced}
               onForceClose={() => setDoraPaletteForced(false)}
             />
           ) : (
