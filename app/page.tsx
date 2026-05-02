@@ -145,8 +145,8 @@ function Segmented<T extends string>({
   );
 }
 
-function Disclosure({ label, children }: { label: string; children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+function Disclosure({ label, children, defaultOpen = false }: { label: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
       <button
@@ -550,6 +550,17 @@ export default function Home() {
   }
 
   // ── Detection handlers ────────────────────────────────────────────────────
+  function handleClearHand() {
+    setHandTiles([]);
+    setWinningTile(null);
+    setMelds([]);
+    setResult(null);
+    setHandScanned(false);
+    setHandImageUrl(null);
+    setHandForceRevision(0);
+    setDetectError(null);
+  }
+
   function handleClear() {
     setHandTiles([]);
     setWinningTile(null);
@@ -782,7 +793,20 @@ export default function Home() {
           className="rounded-sm p-4 space-y-4"
           style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}
         >
-          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Hand</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Hand</p>
+            {showHandRows && (
+              <button
+                onClick={handleClearHand}
+                className="text-xs font-semibold tracking-widest uppercase px-2 py-1 rounded-sm transition-colors"
+                style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.redText; e.currentTarget.style.color = C.redText; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
           <CameraCapture
             label="Scan Hand"
             onCapture={handleHandCapture}
@@ -918,7 +942,7 @@ export default function Home() {
           className="rounded-sm p-4 space-y-4"
           style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}
         >
-          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Dora</p>
+          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Dora / Ura Dora</p>
           <CameraCapture
             label="Scan Dora / Ura Dora"
             onCapture={handleDoraCapture}
@@ -1090,7 +1114,7 @@ export default function Home() {
           )}
 
           {/* Round & dora */}
-          <Disclosure label="Round & dora">
+          <Disclosure label="Round & dora" defaultOpen>
             <Segmented
               label="Round wind"
               options={[

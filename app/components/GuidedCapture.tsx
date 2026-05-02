@@ -30,14 +30,14 @@ interface BoxDef extends SectionBox {
 
 // Fractions of the video frame.
 const LANDSCAPE: Record<GuidedSection, BoxDef> = {
-  dora:    { x: 0.28, y: 0.07, w: 0.30, h: 0.22, label: 'Dora',    hint: '1–4 tiles',  color: '#98e87e' },
-  hand:    { x: 0.02, y: 0.42, w: 0.73, h: 0.34, label: 'Hand',    hint: '13 tiles',   color: C.gold },
-  winning: { x: 0.77, y: 0.42, w: 0.18, h: 0.34, label: 'Win',     hint: '1 tile',     color: '#7ec8e3' },
+  dora:    { x: 0.06, y: 0.04, w: 0.58, h: 0.26, label: 'Dora / Ura Dora', hint: '1–8 tiles',  color: '#98e87e' },
+  hand:    { x: 0.02, y: 0.42, w: 0.73, h: 0.34, label: 'Hand',            hint: '13 tiles',   color: C.gold },
+  winning: { x: 0.77, y: 0.42, w: 0.18, h: 0.34, label: 'Win',             hint: '1 tile',     color: '#7ec8e3' },
 };
 const PORTRAIT: Record<GuidedSection, BoxDef> = {
-  dora:    { x: 0.03, y: 0.05, w: 0.55, h: 0.13, label: 'Dora',    hint: '1–4 tiles',  color: '#98e87e' },
-  hand:    { x: 0.02, y: 0.25, w: 0.96, h: 0.18, label: 'Hand',    hint: '13 tiles',   color: C.gold },
-  winning: { x: 0.02, y: 0.48, w: 0.22, h: 0.14, label: 'Win',     hint: '1 tile',     color: '#7ec8e3' },
+  dora:    { x: 0.02, y: 0.04, w: 0.96, h: 0.14, label: 'Dora / Ura Dora', hint: '1–8 tiles',  color: '#98e87e' },
+  hand:    { x: 0.02, y: 0.25, w: 0.96, h: 0.18, label: 'Hand',            hint: '13 tiles',   color: C.gold },
+  winning: { x: 0.02, y: 0.48, w: 0.22, h: 0.14, label: 'Win',             hint: '1 tile',     color: '#7ec8e3' },
 };
 
 const SECTION_ORDER: GuidedSection[] = ['hand', 'winning', 'dora'];
@@ -102,6 +102,15 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     const ro = new ResizeObserver(computeOverlay);
     ro.observe(cont);
     return () => ro.disconnect();
+  }, [computeOverlay]);
+
+  // Re-compute when the video's intrinsic dimensions change (e.g. device rotates
+  // and the camera stream switches from portrait ↔ landscape).
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    vid.addEventListener('resize', computeOverlay);
+    return () => vid.removeEventListener('resize', computeOverlay);
   }, [computeOverlay]);
 
   async function toggleTorch() {
@@ -248,25 +257,41 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
         style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 60%, transparent)' }}
       >
         {/* Section toggles */}
-        <div className="flex gap-2">
-          {SECTION_ORDER.map((key) => {
-            const box = boxes[key];
-            const on = sections[key];
-            return (
-              <button
-                key={key}
-                onClick={() => setSections((s) => ({ ...s, [key]: !s[key] }))}
-                className="px-3 py-1.5 rounded-sm text-xs font-bold tracking-widest uppercase transition-all"
-                style={{
-                  border:     `1px solid ${on ? box.color : 'rgba(255,255,255,0.2)'}`,
-                  color:      on ? box.color : 'rgba(255,255,255,0.35)',
-                  background: on ? `${box.color}1a` : 'transparent',
-                }}
-              >
-                {box.label}
-              </button>
-            );
-          })}
+        <div className="w-full px-2">
+          <p className="text-center text-xs mb-2 tracking-wider font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.35)' }}>
+            Tap to enable / disable sections
+          </p>
+          <div className="flex gap-2 justify-center">
+            {SECTION_ORDER.map((key) => {
+              const box = boxes[key];
+              const on = sections[key];
+              return (
+                <button
+                  key={key}
+                  onClick={() => setSections((s) => ({ ...s, [key]: !s[key] }))}
+                  className="flex flex-col items-center gap-1 px-3 py-2 rounded transition-all"
+                  style={{
+                    border:     `1.5px solid ${on ? box.color : 'rgba(255,255,255,0.18)'}`,
+                    color:      on ? box.color : 'rgba(255,255,255,0.3)',
+                    background: on ? `${box.color}22` : 'rgba(0,0,0,0.35)',
+                    minWidth: 72,
+                  }}
+                >
+                  <span className="text-xs font-bold tracking-widest uppercase">{box.label.split(' ')[0]}</span>
+                  <span
+                    className="text-xs font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-sm"
+                    style={{
+                      background: on ? box.color : 'rgba(255,255,255,0.08)',
+                      color: on ? '#000' : 'rgba(255,255,255,0.3)',
+                      fontSize: 9,
+                    }}
+                  >
+                    {on ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Flash toggle */}
