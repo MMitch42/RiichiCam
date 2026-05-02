@@ -554,10 +554,14 @@ export default function Home() {
     setHandTiles([]);
     setWinningTile(null);
     setMelds([]);
+    setDoraIndicatorTiles([]);
     setResult(null);
     setHandScanned(false);
+    setDoraScanned(false);
     setHandImageUrl(null);
+    setDoraImageUrl(null);
     setHandForceRevision(0);
+    setDoraPaletteForced(false);
     setDetectError(null);
   }
 
