@@ -61,6 +61,8 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
   const [sections, setSections] = useState<Record<GuidedSection, boolean>>({
     hand: true, winning: true, dora: true,
   });
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
 
   const computeOverlay = useCallback(() => {
     const vid = videoRef.current;
@@ -83,6 +85,11 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
       .then((stream) => {
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          const caps = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean };
+          if (caps.torch) setTorchSupported(true);
+        }
       })
       .catch(() => setCameraError('Camera access denied. Use Photo Library or Take Photo instead.'));
 
@@ -96,6 +103,16 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     ro.observe(cont);
     return () => ro.disconnect();
   }, [computeOverlay]);
+
+  async function toggleTorch() {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next } as MediaTrackConstraintSet] });
+      setTorchOn(next);
+    } catch { /* torch unsupported on this device */ }
+  }
 
   function handleVideoReady() {
     setReady(true);
@@ -251,6 +268,25 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
             );
           })}
         </div>
+
+        {/* Flash toggle */}
+        {torchSupported && (
+          <button
+            onClick={toggleTorch}
+            aria-label={torchOn ? 'Flash on' : 'Flash off'}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-bold tracking-widest uppercase transition-all"
+            style={{
+              border:     `1px solid ${torchOn ? '#ffe066' : 'rgba(255,255,255,0.2)'}`,
+              color:      torchOn ? '#ffe066' : 'rgba(255,255,255,0.45)',
+              background: torchOn ? 'rgba(255,224,102,0.12)' : 'transparent',
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill={torchOn ? '#ffe066' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            Flash
+          </button>
+        )}
 
         {/* Shutter button */}
         <button
