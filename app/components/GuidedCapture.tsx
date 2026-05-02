@@ -30,7 +30,7 @@ interface BoxDef extends SectionBox {
 
 // Fractions of the video frame.
 const LANDSCAPE: Record<GuidedSection, BoxDef> = {
-  dora:    { x: 0.06, y: 0.04, w: 0.58, h: 0.26, label: 'Dora / Ura Dora', hint: '1–8 tiles',  color: '#98e87e' },
+  dora:    { x: 0.06, y: 0.07, w: 0.58, h: 0.26, label: 'Dora / Ura Dora', hint: '1–8 tiles',  color: '#98e87e' },
   hand:    { x: 0.02, y: 0.42, w: 0.73, h: 0.34, label: 'Hand',            hint: '13 tiles',   color: C.gold },
   winning: { x: 0.77, y: 0.42, w: 0.18, h: 0.34, label: 'Win',             hint: '1 tile',     color: '#7ec8e3' },
 };
@@ -253,84 +253,165 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
 
       {/* Bottom controls */}
       <div
-        className="absolute bottom-0 left-0 right-0 pt-6 pb-10 px-6 flex flex-col items-center gap-5"
-        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 60%, transparent)' }}
+        className="absolute bottom-0 left-0 right-0 px-6"
+        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 60%, transparent)', paddingTop: isLandscape ? 12 : 24, paddingBottom: isLandscape ? 12 : 40 }}
       >
-        {/* Section toggles */}
-        <div className="w-full px-2">
-          <p className="text-center text-xs mb-2 tracking-wider font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            Tap to enable / disable sections
-          </p>
-          <div className="flex gap-2 justify-center">
-            {SECTION_ORDER.map((key) => {
-              const box = boxes[key];
-              const on = sections[key];
-              return (
+        {isLandscape ? (
+          /* Landscape: flash | shutter | toggles — all in one row */
+          <div className="flex items-center justify-center gap-6">
+            {/* Flash — left of shutter */}
+            <div style={{ width: 64, display: 'flex', justifyContent: 'center' }}>
+              {torchSupported && (
                 <button
-                  key={key}
-                  onClick={() => setSections((s) => ({ ...s, [key]: !s[key] }))}
-                  className="flex flex-col items-center gap-1 px-3 py-2 rounded transition-all"
+                  onClick={toggleTorch}
+                  aria-label={torchOn ? 'Flash on' : 'Flash off'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-bold tracking-widest uppercase transition-all"
                   style={{
-                    border:     `1.5px solid ${on ? box.color : 'rgba(255,255,255,0.18)'}`,
-                    color:      on ? box.color : 'rgba(255,255,255,0.3)',
-                    background: on ? `${box.color}22` : 'rgba(0,0,0,0.35)',
-                    minWidth: 72,
+                    border:     `1px solid ${torchOn ? '#ffe066' : 'rgba(255,255,255,0.2)'}`,
+                    color:      torchOn ? '#ffe066' : 'rgba(255,255,255,0.45)',
+                    background: torchOn ? 'rgba(255,224,102,0.12)' : 'transparent',
                   }}
                 >
-                  <span className="text-xs font-bold tracking-widest uppercase">{box.label.split(' ')[0]}</span>
-                  <span
-                    className="text-xs font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-sm"
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill={torchOn ? '#ffe066' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  Flash
+                </button>
+              )}
+            </div>
+
+            {/* Shutter — center */}
+            <button
+              onClick={capture}
+              disabled={!ready || !anySectionOn}
+              aria-label="Capture"
+              className="flex items-center justify-center rounded-full disabled:opacity-40 transition-transform active:scale-95 shrink-0"
+              style={{
+                width: 68,
+                height: 68,
+                background: 'transparent',
+                border: '3px solid rgba(255,255,255,0.5)',
+              }}
+            >
+              <div
+                className="rounded-full transition-colors"
+                style={{ width: 52, height: 52, background: C.gold }}
+              />
+            </button>
+
+            {/* Section toggles — right of shutter, in a row */}
+            <div className="flex gap-2">
+              {SECTION_ORDER.map((key) => {
+                const box = boxes[key];
+                const on = sections[key];
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setSections((s) => ({ ...s, [key]: !s[key] }))}
+                    className="flex flex-col items-center gap-1 px-3 py-2 rounded transition-all"
                     style={{
-                      background: on ? box.color : 'rgba(255,255,255,0.08)',
-                      color: on ? '#000' : 'rgba(255,255,255,0.3)',
-                      fontSize: 9,
+                      border:     `1.5px solid ${on ? box.color : 'rgba(255,255,255,0.18)'}`,
+                      color:      on ? box.color : 'rgba(255,255,255,0.3)',
+                      background: on ? `${box.color}22` : 'rgba(0,0,0,0.35)',
+                      minWidth: 64,
                     }}
                   >
-                    {on ? 'ON' : 'OFF'}
-                  </span>
-                </button>
-              );
-            })}
+                    <span className="text-xs font-bold tracking-widest uppercase">{box.label.split(' ')[0]}</span>
+                    <span
+                      className="text-xs font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-sm"
+                      style={{
+                        background: on ? box.color : 'rgba(255,255,255,0.08)',
+                        color: on ? '#000' : 'rgba(255,255,255,0.3)',
+                        fontSize: 9,
+                      }}
+                    >
+                      {on ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          /* Portrait: stacked layout */
+          <div className="flex flex-col items-center gap-5">
+            {/* Section toggles */}
+            <div className="w-full px-2">
+              <p className="text-center text-xs mb-2 tracking-wider font-semibold uppercase" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                Tap to enable / disable sections
+              </p>
+              <div className="flex gap-2 justify-center">
+                {SECTION_ORDER.map((key) => {
+                  const box = boxes[key];
+                  const on = sections[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSections((s) => ({ ...s, [key]: !s[key] }))}
+                      className="flex flex-col items-center gap-1 px-3 py-2 rounded transition-all"
+                      style={{
+                        border:     `1.5px solid ${on ? box.color : 'rgba(255,255,255,0.18)'}`,
+                        color:      on ? box.color : 'rgba(255,255,255,0.3)',
+                        background: on ? `${box.color}22` : 'rgba(0,0,0,0.35)',
+                        minWidth: 72,
+                      }}
+                    >
+                      <span className="text-xs font-bold tracking-widest uppercase">{box.label.split(' ')[0]}</span>
+                      <span
+                        className="text-xs font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-sm"
+                        style={{
+                          background: on ? box.color : 'rgba(255,255,255,0.08)',
+                          color: on ? '#000' : 'rgba(255,255,255,0.3)',
+                          fontSize: 9,
+                        }}
+                      >
+                        {on ? 'ON' : 'OFF'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        {/* Flash toggle */}
-        {torchSupported && (
-          <button
-            onClick={toggleTorch}
-            aria-label={torchOn ? 'Flash on' : 'Flash off'}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-bold tracking-widest uppercase transition-all"
-            style={{
-              border:     `1px solid ${torchOn ? '#ffe066' : 'rgba(255,255,255,0.2)'}`,
-              color:      torchOn ? '#ffe066' : 'rgba(255,255,255,0.45)',
-              background: torchOn ? 'rgba(255,224,102,0.12)' : 'transparent',
-            }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill={torchOn ? '#ffe066' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-            Flash
-          </button>
+            {/* Flash toggle */}
+            {torchSupported && (
+              <button
+                onClick={toggleTorch}
+                aria-label={torchOn ? 'Flash on' : 'Flash off'}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-bold tracking-widest uppercase transition-all"
+                style={{
+                  border:     `1px solid ${torchOn ? '#ffe066' : 'rgba(255,255,255,0.2)'}`,
+                  color:      torchOn ? '#ffe066' : 'rgba(255,255,255,0.45)',
+                  background: torchOn ? 'rgba(255,224,102,0.12)' : 'transparent',
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill={torchOn ? '#ffe066' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                Flash
+              </button>
+            )}
+
+            {/* Shutter button */}
+            <button
+              onClick={capture}
+              disabled={!ready || !anySectionOn}
+              aria-label="Capture"
+              className="flex items-center justify-center rounded-full disabled:opacity-40 transition-transform active:scale-95"
+              style={{
+                width: 68,
+                height: 68,
+                background: 'transparent',
+                border: '3px solid rgba(255,255,255,0.5)',
+              }}
+            >
+              <div
+                className="rounded-full transition-colors"
+                style={{ width: 52, height: 52, background: C.gold }}
+              />
+            </button>
+          </div>
         )}
-
-        {/* Shutter button */}
-        <button
-          onClick={capture}
-          disabled={!ready || !anySectionOn}
-          aria-label="Capture"
-          className="flex items-center justify-center rounded-full disabled:opacity-40 transition-transform active:scale-95"
-          style={{
-            width: 68,
-            height: 68,
-            background: 'transparent',
-            border: '3px solid rgba(255,255,255,0.5)',
-          }}
-        >
-          <div
-            className="rounded-full transition-colors"
-            style={{ width: 52, height: 52, background: C.gold }}
-          />
-        </button>
       </div>
 
       {/* Close */}
