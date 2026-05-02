@@ -6,6 +6,7 @@ import { score } from '@/lib/scoring';
 import { sortTiles } from '@/lib/scoring/tiles';
 import type { Hand, Meld, ScoreResult, Tile, SuitedValue, WindValue } from '@/lib/scoring/types';
 import CameraCapture from './components/CameraCapture';
+import GuidedCapture, { type GuidedScanData } from './components/GuidedCapture';
 import TileRow from './components/TileRow';
 import TileGraphic from './components/TileGraphic';
 import MeldBuilder from './components/MeldBuilder';
@@ -285,6 +286,7 @@ function ResultPanel({
   }
 
   const sortedYaku = [...result.yaku].sort((a, b) => b.han - a.han);
+  const indicatorDora = result.doraCount - result.akaDoraCount + result.uraDoraCount;
   const totalDora = result.doraCount + result.uraDoraCount;
   const grandTotal = result.totalHan + totalDora;
   const isDealer = seatWind === 'east';
@@ -413,12 +415,16 @@ function ResultPanel({
             </div>
           );
         })}
-        {totalDora > 0 && (
-          <div className="flex justify-between py-2.5 font-mono text-sm">
-            <span style={{ color: C.text }}>
-              Dora{result.uraDoraCount > 0 && ` (${result.doraCount} + ${result.uraDoraCount} ura)`}
-            </span>
-            <span className="font-semibold" style={{ color: C.gold }}>{totalDora} han</span>
+        {indicatorDora > 0 && (
+          <div className="flex justify-between py-2.5 font-mono text-sm" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <span style={{ color: C.text }}>Dora{result.uraDoraCount > 0 && ` · ${result.uraDoraCount} ura`}</span>
+            <span className="font-semibold" style={{ color: C.gold }}>{indicatorDora} han</span>
+          </div>
+        )}
+        {result.akaDoraCount > 0 && (
+          <div className="flex justify-between py-2.5 font-mono text-sm" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <span style={{ color: C.text }}>Aka Dora</span>
+            <span className="font-semibold" style={{ color: C.gold }}>{result.akaDoraCount} han</span>
           </div>
         )}
       </div>
@@ -485,6 +491,8 @@ export default function Home() {
   const [handForceRevision, setHandForceRevision] = useState(0);
   const [doraPaletteForced, setDoraPaletteForced] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [guidedOpen, setGuidedOpen] = useState(false);
+  const [meldBuilderActive, setMeldBuilderActive] = useState(false);
 
   // ── Win type ──────────────────────────────────────────────────────────────
   const [winType, setWinType] = useState<'tsumo' | 'ron'>('tsumo');
@@ -504,7 +512,6 @@ export default function Home() {
   const [riichi, setRiichi] = useState(false);
   const [doubleRiichi, setDoubleRiichi] = useState(false);
   const [ippatsu, setIppatsu] = useState(false);
-  const [uraDora, setUraDora] = useState(0);
 
   // ── Special conditions ────────────────────────────────────────────────────
   const [haitei, setHaitei] = useState(false);
@@ -571,7 +578,7 @@ export default function Home() {
       const res = await fetch('/api/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
+        body: JSON.stringify({ image: base64, mode: 'hand' }),
       });
       const data = await res.json();
       if (data.error) {
@@ -598,17 +605,67 @@ export default function Home() {
       const res = await fetch('/api/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64 }),
+        body: JSON.stringify({ image: base64, mode: 'dora' }),
       });
       const data = await res.json();
       if (data.error) {
         setDetectError(data.error);
         return;
       }
-      setDoraIndicatorTiles(sortTiles(data.tiles.slice(0, 4)));
+      setDoraIndicatorTiles(sortTiles(data.tiles.slice(0, 8)));
     } catch {
       setDetectError('Detection failed. Check your connection and try again.');
     } finally {
+      setIsDetectingDora(false);
+    }
+  }
+
+  async function handleGuidedCapture(data: GuidedScanData) {
+    setGuidedOpen(false);
+    if (!data.fullImage || Object.keys(data.sections).length === 0) return;
+
+    setDetectError(null);
+    setResult(null);
+
+    if (data.sections.hand) {
+      setIsDetectingHand(true);
+      setHandScanned(true);
+      setHandForceRevision((r) => r + 1);
+      // Show the full frame as the scan preview
+      setHandImageUrl(`data:image/jpeg;base64,${data.fullImage}`);
+    }
+    if (data.sections.dora) {
+      setIsDetectingDora(true);
+      setDoraScanned(true);
+      setDoraPaletteForced(true);
+    }
+
+    try {
+      const res = await fetch('/api/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: data.fullImage,
+          mode: 'guided',
+          sections: data.sections,
+          isLandscape: data.isLandscape,
+        }),
+      });
+      const result = await res.json();
+
+      if (result.error) {
+        setDetectError(result.error);
+        return;
+      }
+
+      if (result.hand?.length > 0) setHandTiles(sortTiles((result.hand as Tile[]).slice(0, 13)));
+      if (result.winningTile) setWinningTile(result.winningTile as Tile);
+      if (result.dora?.length > 0) setDoraIndicatorTiles(sortTiles((result.dora as Tile[]).slice(0, 8)));
+      if (result.melds?.length > 0) setMelds(result.melds);
+    } catch {
+      setDetectError('Detection failed. Check your connection and try again.');
+    } finally {
+      setIsDetectingHand(false);
       setIsDetectingDora(false);
     }
   }
@@ -633,9 +690,7 @@ export default function Home() {
       houtei: winType === 'ron' && houtei,
       rinshan: winType === 'tsumo' && rinshan,
       chankan: winType === 'ron' && chankan,
-      uraDoraIndicators: riichi
-        ? (Array(uraDora).fill({ suit: 'man' as const, value: 1 }) as Tile[])
-        : undefined,
+      uraDoraIndicators: undefined,
     };
   }
 
@@ -689,6 +744,13 @@ export default function Home() {
     ...melds.flatMap((m) => [...m.tiles]),
   ];
   const isRiichi = riichi || doubleRiichi;
+
+  // Count aka-5 tiles already in hand+melds (excluding winning tile, since we're selecting it)
+  function akaInHandMelds(suit: 'man' | 'pin' | 'sou'): number {
+    return [...handTiles, ...melds.flatMap((m) => [...m.tiles])].filter(
+      (t) => t.suit === suit && t.value === 5 && !!(t as { isAka?: boolean }).isAka
+    ).length;
+  }
   const showHandRows = handScanned || handTiles.length > 0 || winningTile !== null || melds.length > 0;
   const showDoraRow = doraScanned || doraIndicatorTiles.length > 0;
 
@@ -725,6 +787,7 @@ export default function Home() {
             label="Scan Hand"
             onCapture={handleHandCapture}
             isLoading={isDetectingHand}
+            onStartGuided={() => setGuidedOpen(true)}
           />
           {handImageUrl && (
             <div className="flex items-center gap-3">
@@ -750,6 +813,7 @@ export default function Home() {
                 usedTiles={usedTiles}
                 forceOpen={showHandRows && handTiles.length + meldTileCount < 13 + numKans}
                 forceOpenRevision={handForceRevision}
+                readOnly={meldBuilderActive}
               />
 
               {(handScanned || handTiles.length > 0) && (
@@ -758,6 +822,7 @@ export default function Home() {
                   melds={melds}
                   onHandTilesChange={setHandTiles}
                   onMeldsChange={handleMeldsChange}
+                  onActiveChange={setMeldBuilderActive}
                 />
               )}
 
@@ -794,21 +859,26 @@ export default function Home() {
                               {rowTiles.map((tile, i) => {
                                 const isWait = tenpaiWaits.some(w => tileMatchesValue(w, tile));
                                 const isSelected = winningTile !== null && tileMatchesExact(winningTile, tile);
+                                const isAka5 = tile.suit !== 'honor' && !!tile.isAka;
+                                const akaMax = isAka5 ? (tile.suit === 'pin' ? 2 : 1) : 4;
+                                const akaExhausted = isAka5 && akaInHandMelds(tile.suit as 'man' | 'pin' | 'sou') >= akaMax && !isSelected;
                                 return (
                                   <button
                                     key={i}
-                                    onClick={() => setWinningTile(tile)}
+                                    onClick={() => !akaExhausted && setWinningTile(tile)}
+                                    disabled={akaExhausted}
                                     aria-label={tileLabel(tile)}
                                     title={tileLabel(tile)}
                                     className="px-1.5 py-1 rounded text-sm font-medium transition-all"
                                     style={{
                                       background: isSelected ? 'rgba(201,162,39,0.2)' : C.surfaceEl,
                                       border: `1px solid ${isSelected || isWait ? C.gold : C.goldBorderSm}`,
-                                      opacity: isSelected || isWait ? 1 : 0.3,
+                                      opacity: akaExhausted ? 0.15 : isSelected || isWait ? 1 : 0.3,
                                       transform: isSelected ? 'scale(1.15)' : undefined,
+                                      cursor: akaExhausted ? 'not-allowed' : undefined,
                                     }}
                                     onMouseEnter={(e) => {
-                                      if (isWait && !isSelected) e.currentTarget.style.boxShadow = `0 0 6px ${C.gold}`;
+                                      if (isWait && !isSelected && !akaExhausted) e.currentTarget.style.boxShadow = `0 0 6px ${C.gold}`;
                                     }}
                                     onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
                                   >
@@ -850,7 +920,7 @@ export default function Home() {
         >
           <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Dora</p>
           <CameraCapture
-            label="Scan Dora"
+            label="Scan Dora / Ura Dora"
             onCapture={handleDoraCapture}
             isLoading={isDetectingDora}
           />
@@ -873,7 +943,7 @@ export default function Home() {
               label="Dora indicators"
               tiles={doraIndicatorTiles}
               onChange={setDoraIndicatorTiles}
-              maxTiles={4}
+              maxTiles={8}
               usedTiles={usedTiles}
               forceOpen={doraPaletteForced && doraIndicatorTiles.length === 0}
               onForceClose={() => setDoraPaletteForced(false)}
@@ -992,7 +1062,6 @@ export default function Home() {
                 if (!v) {
                   setDoubleRiichi(false);
                   setIppatsu(false);
-                  setUraDora(0);
                 }
               }}
             />
@@ -1015,16 +1084,6 @@ export default function Home() {
                   sub="Declared riichi on your very first discard."
                   value={doubleRiichi}
                   onChange={handleDoubleRiichi}
-                />
-              </div>
-              <div className="pl-4 ml-0.5" style={{ borderLeft: `2px solid ${C.gold}`, borderTop: `1px solid ${C.goldBorderXs}` }}>
-                <Stepper
-                  label="Ura Dora"
-                  sub="Revealed after winning with riichi. Count tiles in your hand whose suit and number come one after the dora indicator."
-                  value={uraDora}
-                  onChange={setUraDora}
-                  min={0}
-                  max={4}
                 />
               </div>
             </>
@@ -1158,6 +1217,14 @@ export default function Home() {
           </p>
         </footer>
       </div>
+
+      {/* ── Guided capture overlay ───────────────────────────────────────── */}
+      {guidedOpen && (
+        <GuidedCapture
+          onCapture={handleGuidedCapture}
+          onClose={() => setGuidedOpen(false)}
+        />
+      )}
 
       {/* ── Lightbox ─────────────────────────────────────────────────────── */}
       {lightboxUrl && (

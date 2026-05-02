@@ -50,7 +50,8 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
   const allMeldTiles = hand.melds.flatMap((m) => m.tiles);
   const allTiles = [...allClosedWithWin, ...allMeldTiles];
 
-  const doraCount = countDora(allTiles, hand.doraIndicators) + countAkaDora(allTiles);
+  const akaDoraCount = countAkaDora(allTiles);
+  const doraCount = countDora(allTiles, hand.doraIndicators) + akaDoraCount;
   const uraDoraCount =
     (hand.riichi || hand.doubleRiichi) && hand.uraDoraIndicators
       ? countDora(allTiles, hand.uraDoraIndicators)
@@ -67,6 +68,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
       fu: 0,
       fuBreakdown: { base: 0, pairFu: 0, meldFu: 0, waitFu: 0, tsumoFu: 0, total: 0 },
       doraCount,
+      akaDoraCount,
       uraDoraCount,
       points: { total: 0 },
     };
@@ -96,6 +98,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
       fu: 30,
       fuBreakdown,
       doraCount,
+      akaDoraCount,
       uraDoraCount,
       points,
       handName: "yakuman",
@@ -127,6 +130,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
       fu: 25,
       fuBreakdown,
       doraCount,
+      akaDoraCount,
       uraDoraCount,
       points,
       handName: name,
@@ -153,6 +157,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
       fu: fu.total,
       fuBreakdown: fu,
       doraCount,
+      akaDoraCount,
       uraDoraCount,
       points: { total: 0 },
     };
@@ -169,6 +174,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
     fu: fu.total,
     fuBreakdown: fu,
     doraCount,
+    akaDoraCount,
     uraDoraCount,
     points,
     handName: name,

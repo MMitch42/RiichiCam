@@ -112,7 +112,8 @@ export interface ScoreResult {
   fu: number;        // rounded fu
   fuBreakdown: FuBreakdown;
 
-  doraCount: number;
+  doraCount: number;     // indicator dora + aka dora combined (used for totalHan math)
+  akaDoraCount: number;  // aka (red-five) portion of doraCount, shown separately in UI
   uraDoraCount: number;
 
   points: PointsBreakdown;

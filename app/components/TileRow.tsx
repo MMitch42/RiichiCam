@@ -14,6 +14,7 @@ interface TileRowProps {
   forceOpen?: boolean;
   onForceClose?: () => void;
   forceOpenRevision?: number;
+  readOnly?: boolean;
 }
 
 const C = {
@@ -81,7 +82,7 @@ const PALETTE_ROWS = [
   { label: 'Honors', tiles: HONOR_TILES },
 ];
 
-export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = [], forceOpen = false, onForceClose, forceOpenRevision }: TileRowProps) {
+export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = [], forceOpen = false, onForceClose, forceOpenRevision, readOnly = false }: TileRowProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [manuallyClosed, setManuallyClosed] = useState(false);
   const prevForceOpenRef = useRef(forceOpen);
@@ -99,7 +100,7 @@ export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = 
     if (forceOpenRevision !== undefined) setManuallyClosed(false);
   }, [forceOpenRevision]);
 
-  const effectiveOpen = (forceOpen && !manuallyClosed) || paletteOpen;
+  const effectiveOpen = !readOnly && ((forceOpen && !manuallyClosed) || paletteOpen);
 
   const atMax = maxTiles !== undefined && tiles.length >= maxTiles;
   const countOk = maxTiles === undefined || tiles.length === maxTiles;
@@ -148,7 +149,7 @@ export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = 
         </span>
       </div>
 
-      {tiles.length === 0 && !effectiveOpen && !atMax && (
+      {tiles.length === 0 && !effectiveOpen && !atMax && !readOnly && (
         <button
           onClick={() => setPaletteOpen(true)}
           className="w-full py-2 rounded-sm text-xs font-medium tracking-wide transition-colors"
@@ -165,11 +166,11 @@ export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = 
           {tiles.map((tile, i) => (
             <button
               key={i}
-              onClick={() => removeTile(i)}
-              aria-label={`Remove ${tileName(tile)}`}
+              onClick={() => !readOnly && removeTile(i)}
+              aria-label={readOnly ? tileName(tile) : `Remove ${tileName(tile)}`}
               className="px-2 py-1 rounded text-sm font-medium flex items-center gap-1 transition-colors"
-              style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}`, color: C.text }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.gold)}
+              style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}`, color: C.text, cursor: readOnly ? 'default' : undefined }}
+              onMouseEnter={(e) => { if (!readOnly) e.currentTarget.style.borderColor = C.gold; }}
               onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.goldBorderSm)}
             >
               <TileGraphic tile={tile} size="normal" />
@@ -179,7 +180,7 @@ export default function TileRow({ tiles, onChange, maxTiles, label, usedTiles = 
         </div>
       )}
 
-      {!atMax && (tiles.length > 0 || effectiveOpen) && (
+      {!atMax && !readOnly && (tiles.length > 0 || effectiveOpen) && (
         <button
           onClick={() => {
             if (effectiveOpen) {

@@ -7,6 +7,7 @@ interface CameraCaptureProps {
   onCapture: (base64: string) => void;
   isLoading: boolean;
   disabled?: boolean;
+  onStartGuided?: () => void;
 }
 
 const C = {
@@ -48,6 +49,15 @@ const IconCamera = () => (
   </svg>
 );
 
+const IconGuided = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <line x1="6" y1="6" x2="6" y2="18" />
+    <line x1="18" y1="6" x2="18" y2="18" />
+    <rect x="14" y="8" width="3" height="8" rx="1" strokeWidth="1.2" />
+  </svg>
+);
+
 const IconClipboard = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
     <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
@@ -55,12 +65,14 @@ const IconClipboard = () => (
   </svg>
 );
 
-export default function CameraCapture({ label, onCapture, isLoading, disabled }: CameraCaptureProps) {
+export default function CameraCapture({ label, onCapture, isLoading, disabled, onStartGuided }: CameraCaptureProps) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [pasteError, setPasteError] = useState<string | null>(null);
+  const [pasteHint, setPasteHint] = useState<string | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const processFile = useCallback(
     (file: File) => {
@@ -91,6 +103,12 @@ export default function CameraCapture({ label, onCapture, isLoading, disabled }:
     errorTimerRef.current = setTimeout(() => setPasteError(null), 3000);
   }
 
+  function showPasteHint(msg: string) {
+    setPasteHint(msg);
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    hintTimerRef.current = setTimeout(() => setPasteHint(null), 4000);
+  }
+
   const handleCameraChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -109,25 +127,10 @@ export default function CameraCapture({ label, onCapture, isLoading, disabled }:
     [processFile],
   );
 
-  const handlePaste = useCallback(async () => {
+  const handlePaste = useCallback(() => {
     setMenuOpen(false);
-    try {
-      const items = await navigator.clipboard.read();
-      let found = false;
-      for (const item of items) {
-        const imageType = item.types.find((t) => t.startsWith('image/'));
-        if (imageType) {
-          found = true;
-          const blob = await item.getType(imageType);
-          processFile(new File([blob], 'paste.png', { type: imageType }));
-          break;
-        }
-      }
-      if (!found) showPasteError('No image in clipboard');
-    } catch {
-      showPasteError('No image in clipboard');
-    }
-  }, [processFile]);
+    showPasteHint('Press ⌘V (Mac) or Ctrl+V (Windows) to paste an image');
+  }, []);
 
   const handleDocumentPaste = useCallback(
     (e: ClipboardEvent) => {
@@ -149,6 +152,7 @@ export default function CameraCapture({ label, onCapture, isLoading, disabled }:
     return () => {
       document.removeEventListener('paste', handleDocumentPaste);
       if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+      if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
     };
   }, [handleDocumentPaste]);
 
@@ -174,6 +178,9 @@ export default function CameraCapture({ label, onCapture, isLoading, disabled }:
       {pasteError && (
         <p className="mt-2 text-xs text-center" style={{ color: C.red }}>{pasteError}</p>
       )}
+      {pasteHint && (
+        <p className="mt-2 text-xs text-center" style={{ color: C.text }}>{pasteHint}</p>
+      )}
 
       {menuOpen && (
         <>
@@ -188,6 +195,21 @@ export default function CameraCapture({ label, onCapture, isLoading, disabled }:
               animation: 'menuIn 0.12s ease',
             }}
           >
+            {onStartGuided && (
+              <button
+                onClick={() => { setMenuOpen(false); onStartGuided(); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors text-sm"
+                style={{ borderBottom: `1px solid ${C.goldMenuDiv}`, color: C.text }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = C.goldHover)}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <span style={{ color: C.textSec }}><IconGuided /></span>
+                <div>
+                  <div>Guided Scan</div>
+                  <div className="text-xs mt-0.5" style={{ color: C.textSec }}>Hand · Winning · Dora in one shot</div>
+                </div>
+              </button>
+            )}
             <button
               onClick={() => { setMenuOpen(false); setTimeout(() => libraryInputRef.current?.click(), 50); }}
               className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors text-sm"

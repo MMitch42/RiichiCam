@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Tile, Meld } from '@/lib/scoring/types';
 import TileGraphic from './TileGraphic';
 
@@ -9,6 +9,7 @@ interface MeldBuilderProps {
   melds: Meld[];
   onHandTilesChange: (tiles: Tile[]) => void;
   onMeldsChange: (melds: Meld[]) => void;
+  onActiveChange?: (active: boolean) => void;
 }
 
 const C = {
@@ -89,9 +90,11 @@ function MeldOptionCard({
   );
 }
 
-export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMeldsChange }: MeldBuilderProps) {
+export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMeldsChange, onActiveChange }: MeldBuilderProps) {
   const [active, setActive] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  useEffect(() => { onActiveChange?.(active); }, [active, onActiveChange]);
 
   const selectedTile = selectedIdx !== null ? handTiles[selectedIdx] : null;
 
@@ -134,20 +137,27 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
     return others.length >= 2 ? [selectedIdx!, ...others] : null;
   }, [selectedTile, selectedIdx, handTiles]);
 
-  // Indices for a kan (selected tile + 3 matching tiles)
+  // Indices for a kan. Requires at least 1 other matching tile in hand (2 total);
+  // missing copies up to 4 are synthesized in commit. This covers cases where
+  // detection missed some tiles but the user knows they have a valid kan.
   const kanIndices = useMemo((): number[] | null => {
     if (!selectedTile) return null;
     const others: number[] = [];
     for (let i = 0; i < handTiles.length && others.length < 3; i++) {
       if (i !== selectedIdx && tilesEqual(handTiles[i], selectedTile)) others.push(i);
     }
-    return others.length >= 3 ? [selectedIdx!, ...others] : null;
+    return others.length >= 1 ? [selectedIdx!, ...others.slice(0, 3)] : null;
   }, [selectedTile, selectedIdx, handTiles]);
 
   const noValidMelds = selectedTile !== null && possibleChis.length === 0 && !ponIndices && !kanIndices;
 
   function commit(type: Meld['type'], indices: number[]) {
-    const tiles = indices.map((i) => handTiles[i]);
+    let tiles: Tile[] = indices.map((i) => handTiles[i]);
+    // Fill missing copies when declaring kan with fewer than 4 in hand
+    if (type.startsWith('kan') && tiles.length < 4) {
+      const base = { suit: tiles[0].suit, value: tiles[0].value } as Tile;
+      while (tiles.length < 4) tiles = [...tiles, base];
+    }
     const meld: Meld = { type, tiles: tiles as Meld['tiles'] };
     onHandTilesChange(handTiles.filter((_, i) => !indices.includes(i)));
     onMeldsChange([...melds, meld]);
@@ -261,14 +271,20 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
           )}
 
           {/* Kan */}
-          {kanIndices && (
-            <MeldOptionCard
-              tiles={kanIndices.map((idx) => handTiles[idx])}
-              type="Kan"
-              highlightIdx={0}
-              onClick={() => commit('kan-open', kanIndices)}
-            />
-          )}
+          {kanIndices && (() => {
+            const kanTiles = kanIndices.map((idx) => handTiles[idx]);
+            if (kanTiles.length === 3) {
+              kanTiles.push({ suit: kanTiles[0].suit, value: kanTiles[0].value } as Tile);
+            }
+            return (
+              <MeldOptionCard
+                tiles={kanTiles}
+                type="Kan"
+                highlightIdx={0}
+                onClick={() => commit('kan-open', kanIndices)}
+              />
+            );
+          })()}
 
           {noValidMelds && (
             <p className="text-xs py-1" style={{ color: C.red }}>
