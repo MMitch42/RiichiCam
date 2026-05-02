@@ -493,6 +493,7 @@ export default function Home() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [guidedOpen, setGuidedOpen] = useState(false);
   const [meldBuilderActive, setMeldBuilderActive] = useState(false);
+  const [meldExternalSelect, setMeldExternalSelect] = useState<number | null>(null);
 
   // ── Win type ──────────────────────────────────────────────────────────────
   const [winType, setWinType] = useState<'tsumo' | 'ron'>('tsumo');
@@ -843,6 +844,7 @@ export default function Home() {
                 forceOpen={showHandRows && handTiles.length + meldTileCount < 13 + numKans}
                 forceOpenRevision={handForceRevision}
                 readOnly={meldBuilderActive}
+                onTileClick={meldBuilderActive ? (i) => setMeldExternalSelect(i) : undefined}
               />
 
               {(handScanned || handTiles.length > 0) && (
@@ -852,6 +854,8 @@ export default function Home() {
                   onHandTilesChange={setHandTiles}
                   onMeldsChange={handleMeldsChange}
                   onActiveChange={setMeldBuilderActive}
+                  externalSelectIdx={meldExternalSelect}
+                  onExternalSelectConsumed={() => setMeldExternalSelect(null)}
                 />
               )}
 

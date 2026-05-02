@@ -493,3 +493,25 @@ describe("rules flags", () => {
     expect(result.yaku.every((y) => y.han <= 13)).toBe(true);
   });
 });
+
+// ─── User-reported regression: 234 all suits + closed 1m kan + 5*sou pair ────
+
+describe("regression: 234 sanshoku + 1m closed kan + 5sou pair tsumo", () => {
+  it("4 han 60 fu = mangan = 8000 non-dealer tsumo", () => {
+    const hand: Parameters<typeof score>[0] = {
+      closedTiles: [m(2), m(3), m(4), p(2), p(3), p(4), s(2), s(3), s(4), { suit: 'sou', value: 5, isAka: true }],
+      winningTile: s(5),
+      melds: [{ type: 'kan-closed', tiles: [m(1), m(1), m(1), m(1)] }],
+      doraIndicators: [],
+      winType: 'tsumo',
+      seatWind: 'south',
+      roundWind: 'east',
+    };
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.fu).toBe(60);
+    expect(result.totalHan + result.doraCount).toBe(4);
+    expect(result.handName).toBe('mangan');
+    expect(result.points.total).toBe(8000);
+  });
+});

@@ -67,7 +67,11 @@ export function calculateFu(
     return { base, pairFu: 0, meldFu: 0, waitFu: 0, tsumoFu: 0, total: base };
   }
 
-  const base = 30; // fu base for closed ron; 20 open but not chiitoitsu
+  // Closed ron gets the menzen +10 bonus; tsumo and open ron use base 20
+  const isOpenHand = melds.some(
+    (m) => m.type === "chi" || m.type === "pon" || m.type === "kan-open" || m.type === "kan-added",
+  );
+  const base = winType === "ron" && !isOpenHand ? 30 : 20;
 
   // Wait fu: tanki, kanchan, penchan = 2; ryanmen, shanpon = 0
   const waitFu =

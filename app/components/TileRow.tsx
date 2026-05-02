@@ -16,6 +16,7 @@ interface TileRowProps {
   onForceClose?: () => void;
   forceOpenRevision?: number;
   readOnly?: boolean;
+  onTileClick?: (index: number) => void;
 }
 
 const C = {
@@ -83,7 +84,7 @@ const PALETTE_ROWS = [
   { label: 'Honors', tiles: HONOR_TILES },
 ];
 
-export default function TileRow({ tiles, onChange, maxTiles, minTiles = 0, label, usedTiles = [], forceOpen = false, onForceClose, forceOpenRevision, readOnly = false }: TileRowProps) {
+export default function TileRow({ tiles, onChange, maxTiles, minTiles = 0, label, usedTiles = [], forceOpen = false, onForceClose, forceOpenRevision, readOnly = false, onTileClick }: TileRowProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [manuallyClosed, setManuallyClosed] = useState(false);
   const prevForceOpenRef = useRef(forceOpen);
@@ -167,15 +168,15 @@ export default function TileRow({ tiles, onChange, maxTiles, minTiles = 0, label
           {tiles.map((tile, i) => (
             <button
               key={i}
-              onClick={() => !readOnly && removeTile(i)}
-              aria-label={readOnly ? tileName(tile) : `Remove ${tileName(tile)}`}
+              onClick={() => onTileClick ? onTileClick(i) : (!readOnly && removeTile(i))}
+              aria-label={onTileClick ? tileName(tile) : (readOnly ? tileName(tile) : `Remove ${tileName(tile)}`)}
               className="px-2 py-1 rounded text-sm font-medium flex items-center gap-1 transition-colors"
-              style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}`, color: C.text, cursor: readOnly ? 'default' : undefined }}
-              onMouseEnter={(e) => { if (!readOnly) e.currentTarget.style.borderColor = C.gold; }}
+              style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}`, color: C.text, cursor: (onTileClick || !readOnly) ? 'pointer' : 'default' }}
+              onMouseEnter={(e) => { if (onTileClick || !readOnly) e.currentTarget.style.borderColor = C.gold; }}
               onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.goldBorderSm)}
             >
               <TileGraphic tile={tile} size="normal" />
-              <span style={{ color: C.textSec }}>×</span>
+              {!onTileClick && <span style={{ color: C.textSec }}>×</span>}
             </button>
           ))}
         </div>

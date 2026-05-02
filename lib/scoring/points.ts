@@ -12,6 +12,7 @@ export function handName(han: number, fu: number, isYakuman: boolean, kiriageman
   if (han >= 8) return "baiman";
   if (han >= 6) return "haneman";
   if (han >= 5) return "mangan";
+  if (basicPoints(han, fu) >= 2000) return "mangan";
   if (kiriagemangan && ((han === 4 && fu >= 30) || (han === 3 && fu >= 60))) return "mangan";
   return undefined;
 }

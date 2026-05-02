@@ -10,6 +10,8 @@ interface MeldBuilderProps {
   onHandTilesChange: (tiles: Tile[]) => void;
   onMeldsChange: (melds: Meld[]) => void;
   onActiveChange?: (active: boolean) => void;
+  externalSelectIdx?: number | null;
+  onExternalSelectConsumed?: () => void;
 }
 
 const C = {
@@ -30,7 +32,7 @@ function tilesEqual(a: Tile, b: Tile): boolean {
 }
 
 function MeldCard({ meld, onRemove }: { meld: Meld; onRemove: () => void }) {
-  const typeLabel = { chi: 'Chi', pon: 'Pon', 'kan-open': 'Kan', 'kan-closed': 'Kan', 'kan-added': 'Kan' }[meld.type];
+  const typeLabel = { chi: 'Chi', pon: 'Pon', 'kan-open': 'Open Kan', 'kan-closed': 'Closed Kan', 'kan-added': 'Kan' }[meld.type];
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-sm" style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}` }}>
       <div className="flex gap-1 flex-wrap">
@@ -90,11 +92,18 @@ function MeldOptionCard({
   );
 }
 
-export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMeldsChange, onActiveChange }: MeldBuilderProps) {
+export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMeldsChange, onActiveChange, externalSelectIdx, onExternalSelectConsumed }: MeldBuilderProps) {
   const [active, setActive] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
   useEffect(() => { onActiveChange?.(active); }, [active, onActiveChange]);
+
+  useEffect(() => {
+    if (active && externalSelectIdx != null) {
+      setSelectedIdx(externalSelectIdx);
+      onExternalSelectConsumed?.();
+    }
+  }, [externalSelectIdx, active, onExternalSelectConsumed]);
 
   const selectedTile = selectedIdx !== null ? handTiles[selectedIdx] : null;
 
@@ -269,19 +278,27 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
             />
           )}
 
-          {/* Kan */}
+          {/* Kan — open and closed */}
           {kanIndices && (() => {
             const kanTiles = kanIndices.map((idx) => handTiles[idx]);
             if (kanTiles.length === 3) {
               kanTiles.push({ suit: kanTiles[0].suit, value: kanTiles[0].value } as Tile);
             }
             return (
-              <MeldOptionCard
-                tiles={kanTiles}
-                type="Kan"
-                highlightIdx={0}
-                onClick={() => commit('kan-open', kanIndices)}
-              />
+              <>
+                <MeldOptionCard
+                  tiles={kanTiles}
+                  type="Open Kan"
+                  highlightIdx={0}
+                  onClick={() => commit('kan-open', kanIndices)}
+                />
+                <MeldOptionCard
+                  tiles={kanTiles}
+                  type="Closed Kan"
+                  highlightIdx={0}
+                  onClick={() => commit('kan-closed', kanIndices)}
+                />
+              </>
             );
           })()}
 
