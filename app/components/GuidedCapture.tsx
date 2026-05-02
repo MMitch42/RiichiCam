@@ -191,25 +191,25 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
                     top:    `${box.y * 100}%`,
                     width:  `${box.w * 100}%`,
                     height: `${box.h * 100}%`,
-                    border: `2px solid ${on ? box.color : 'rgba(255,255,255,0.15)'}`,
+                    border: `3px solid ${on ? box.color : 'rgba(255,255,255,0.15)'}`,
                     borderRadius: 4,
                     opacity: on ? 1 : 0.35,
                     transition: 'opacity 0.15s, border-color 0.15s',
                   }}
                 >
                   {[
-                    { top: -1, left: -1, borderTop: `3px solid ${box.color}`, borderLeft: `3px solid ${box.color}` },
-                    { top: -1, right: -1, borderTop: `3px solid ${box.color}`, borderRight: `3px solid ${box.color}` },
-                    { bottom: -1, left: -1, borderBottom: `3px solid ${box.color}`, borderLeft: `3px solid ${box.color}` },
-                    { bottom: -1, right: -1, borderBottom: `3px solid ${box.color}`, borderRight: `3px solid ${box.color}` },
+                    { top: -1, left: -1, borderTop: `4px solid ${box.color}`, borderLeft: `4px solid ${box.color}` },
+                    { top: -1, right: -1, borderTop: `4px solid ${box.color}`, borderRight: `4px solid ${box.color}` },
+                    { bottom: -1, left: -1, borderBottom: `4px solid ${box.color}`, borderLeft: `4px solid ${box.color}` },
+                    { bottom: -1, right: -1, borderBottom: `4px solid ${box.color}`, borderRight: `4px solid ${box.color}` },
                   ].map((style, i) => (
                     <div key={i} style={{ position: 'absolute', width: 12, height: 12, ...style }} />
                   ))}
                   <span style={{
                     position: 'absolute',
-                    top: -22,
+                    top: -24,
                     left: 0,
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: 700,
                     letterSpacing: '0.12em',
                     textTransform: 'uppercase',
@@ -258,9 +258,9 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
       >
         {isLandscape ? (
           /* Landscape: flash | shutter | toggles — all in one row */
-          <div className="flex items-center justify-center gap-6">
-            {/* Flash — left of shutter */}
-            <div style={{ width: 64, display: 'flex', justifyContent: 'center' }}>
+          <div className="flex items-center w-full">
+            {/* Flash — left side, flex-1 so it's equidistant from shutter as Hand toggle */}
+            <div className="flex flex-1 justify-end pr-6">
               {torchSupported && (
                 <button
                   onClick={toggleTorch}
@@ -299,7 +299,8 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
               />
             </button>
 
-            {/* Section toggles — right of shutter, in a row */}
+            {/* Section toggles — right side, flex-1 so Hand toggle is equidistant from shutter as flash */}
+            <div className="flex flex-1 justify-start pl-6">
             <div className="flex gap-2">
               {SECTION_ORDER.map((key) => {
                 const box = boxes[key];
@@ -330,6 +331,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
                   </button>
                 );
               })}
+            </div>
             </div>
           </div>
         ) : (
