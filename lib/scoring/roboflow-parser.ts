@@ -12,12 +12,13 @@ export interface RawPrediction {
 export const MIN_CONFIDENCE = 0.45;
 
 export function roboflowLabelToTile(label: string): Tile {
-  const suited = label.match(/^([1-9])([mps])$/);
+  const suited = label.match(/^([1-9])([mps])(r?)$/);
   if (suited) {
     const value = parseInt(suited[1], 10) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
     const suitChar = suited[2];
+    const isAka = suited[3] === "r";
     const suit = suitChar === "m" ? "man" : suitChar === "p" ? "pin" : "sou";
-    return { suit, value };
+    return { suit, value, ...(isAka ? { isAka: true } : {}) };
   }
 
   const honor = label.match(/^([1-7])z$/);

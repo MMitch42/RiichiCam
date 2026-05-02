@@ -498,15 +498,11 @@ describe("rules flags", () => {
 
 describe("regression: 234 sanshoku + 1m closed kan + 5sou pair tsumo", () => {
   it("4 han 60 fu = mangan = 8000 non-dealer tsumo", () => {
-    const hand: Parameters<typeof score>[0] = {
-      closedTiles: [m(2), m(3), m(4), p(2), p(3), p(4), s(2), s(3), s(4), { suit: 'sou', value: 5, isAka: true }],
-      winningTile: s(5),
-      melds: [{ type: 'kan-closed', tiles: [m(1), m(1), m(1), m(1)] }],
-      doraIndicators: [],
-      winType: 'tsumo',
-      seatWind: 'south',
-      roundWind: 'east',
-    };
+    const hand = makeHand(
+      [m(2), m(3), m(4), p(2), p(3), p(4), s(2), s(3), s(4), { suit: 'sou' as const, value: 5 as const, isAka: true }],
+      s(5),
+      { winType: 'tsumo', seatWind: 'south', roundWind: 'east', melds: [{ type: 'kan-closed', tiles: [m(1), m(1), m(1), m(1)] as [Tile,Tile,Tile,Tile] }], doraIndicators: [] },
+    );
     const result = score(hand);
     expect(result.valid).toBe(true);
     expect(result.fu).toBe(60);
