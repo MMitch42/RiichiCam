@@ -11,6 +11,7 @@ import TileRow from './components/TileRow';
 import TileGraphic from './components/TileGraphic';
 import MeldBuilder from './components/MeldBuilder';
 import TrainingConsentBanner from './components/TrainingConsentBanner';
+import PWAInstallBanner from './components/PWAInstallBanner';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -529,6 +530,9 @@ export default function Home() {
   const [trainingConsent, setTrainingConsent] = useState<'granted' | 'denied' | null>(null);
   const [showConsentBanner, setShowConsentBanner] = useState(false);
 
+  type PendingImage = { base64: string; mode: string; predictions: unknown[]; imageWidth?: number; imageHeight?: number; timestamp: string };
+  const pendingImages = useRef<PendingImage[]>([]);
+
   useEffect(() => {
     const stored = localStorage.getItem('trainingConsent');
     if (stored === 'granted' || stored === 'denied') {
@@ -536,16 +540,33 @@ export default function Home() {
     }
   }, []);
 
+  function flushPendingImages() {
+    const toFlush = [...pendingImages.current];
+    pendingImages.current = [];
+    for (const img of toFlush) {
+      fetch('/api/save-training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: img.base64,
+          meta: { timestamp: img.timestamp, mode: img.mode, sessionId: sessionId.current, predictions: img.predictions, imageWidth: img.imageWidth, imageHeight: img.imageHeight },
+        }),
+      }).catch(() => {});
+    }
+  }
+
   function handleConsentAccept() {
     localStorage.setItem('trainingConsent', 'granted');
     setTrainingConsent('granted');
     setShowConsentBanner(false);
+    flushPendingImages();
   }
 
   function handleConsentDecline() {
     localStorage.setItem('trainingConsent', 'denied');
     setTrainingConsent('denied');
     setShowConsentBanner(false);
+    pendingImages.current = [];
   }
 
   function maybeShowConsentBanner() {
@@ -624,7 +645,7 @@ export default function Home() {
       const res = await fetch('/api/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mode: 'hand', save: trainingConsent === 'granted', sessionId: sessionId.current }),
+        body: JSON.stringify({ image: base64, mode: 'hand', save: trainingConsent === 'granted', sessionId: sessionId.current, returnRawPredictions: trainingConsent === null }),
       });
       const data = await res.json();
       if (data.error) {
@@ -634,6 +655,9 @@ export default function Home() {
       const tiles: Tile[] = data.tiles;
       setHandTiles(sortTiles(tiles.slice(0, 13)));
       if (tiles.length >= 14) setWinningTile(tiles[13]);
+      if (trainingConsent === null && data.rawPredictions) {
+        pendingImages.current.push({ base64, mode: 'hand', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
+      }
     } catch {
       setDetectError('Detection failed. Check your connection and try again.');
     } finally {
@@ -652,7 +676,7 @@ export default function Home() {
       const res = await fetch('/api/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mode: 'dora', save: trainingConsent === 'granted', sessionId: sessionId.current }),
+        body: JSON.stringify({ image: base64, mode: 'dora', save: trainingConsent === 'granted', sessionId: sessionId.current, returnRawPredictions: trainingConsent === null }),
       });
       const data = await res.json();
       if (data.error) {
@@ -660,6 +684,9 @@ export default function Home() {
         return;
       }
       setDoraIndicatorTiles(sortTiles(data.tiles.slice(0, 8)));
+      if (trainingConsent === null && data.rawPredictions) {
+        pendingImages.current.push({ base64, mode: 'dora', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
+      }
     } catch {
       setDetectError('Detection failed. Check your connection and try again.');
     } finally {
@@ -699,6 +726,7 @@ export default function Home() {
           isLandscape: data.isLandscape,
           save: trainingConsent === 'granted',
           sessionId: sessionId.current,
+          returnRawPredictions: trainingConsent === null,
         }),
       });
       const result = await res.json();
@@ -712,6 +740,9 @@ export default function Home() {
       if (result.winningTile) setWinningTile(result.winningTile as Tile);
       if (result.dora?.length > 0) setDoraIndicatorTiles(sortTiles((result.dora as Tile[]).slice(0, 8)));
       if (result.melds?.length > 0) setMelds(result.melds);
+      if (trainingConsent === null && result.rawPredictions) {
+        pendingImages.current.push({ base64: data.fullImage, mode: 'guided', predictions: result.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
+      }
     } catch {
       setDetectError('Detection failed. Check your connection and try again.');
     } finally {
@@ -1262,13 +1293,12 @@ export default function Home() {
               href="https://buymeacoffee.com/RiichiCam"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-sm text-xs font-semibold tracking-wide transition-colors"
-              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent', textDecoration: 'none', maxWidth: 160 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.gold; (e.currentTarget as HTMLAnchorElement).style.color = C.gold; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.goldBorderSm; (e.currentTarget as HTMLAnchorElement).style.color = C.textSec; }}
+              className="bmc-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-sm text-xs font-semibold tracking-wide"
+              style={{ background: C.gold, color: C.bg, textDecoration: 'none', maxWidth: 160, border: 'none' }}
             >
               ☕ Buy Me a Coffee
             </a>
+            <style>{`.bmc-btn:hover { background: ${C.goldBright} !important; }`}</style>
           </div>
 
           {/* Row 2: Training image contribution toggle */}
@@ -1314,6 +1344,9 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      {/* ── PWA install banner ──────────────────────────────────────────── */}
+      <PWAInstallBanner />
 
       {/* ── Training consent banner ─────────────────────────────────────── */}
       {showConsentBanner && (

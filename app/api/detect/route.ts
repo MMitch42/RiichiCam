@@ -75,12 +75,13 @@ export async function POST(request: Request) {
     sections?: Partial<Record<'hand' | 'winning' | 'dora', SectionBox>>;
     save?: boolean;
     sessionId?: string;
+    returnRawPredictions?: boolean;
   };
 
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
 
-  const { image, mode = 'hand', sections, save = false, sessionId = 'unknown' } = body;
+  const { image, mode = 'hand', sections, save = false, sessionId = 'unknown', returnRawPredictions = false } = body;
 
   if (!image || typeof image !== 'string') {
     return NextResponse.json({ error: 'Missing required field: image' }, { status: 400 });
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
           } catch { /* non-critical — never fail a request over training storage */ }
         });
       }
-      return NextResponse.json(result);
+      return NextResponse.json(returnRawPredictions ? { ...result, rawPredictions } : result);
     } catch (err) {
       return NextResponse.json(
         { error: `Failed to parse guided predictions: ${err instanceof Error ? err.message : String(err)}` },
@@ -176,5 +177,5 @@ export async function POST(request: Request) {
     });
   }
 
-  return NextResponse.json({ tiles });
+  return NextResponse.json(returnRawPredictions ? { tiles, rawPredictions } : { tiles });
 }
