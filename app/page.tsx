@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { score } from '@/lib/scoring';
 import { sortTiles } from '@/lib/scoring/tiles';
@@ -10,6 +10,7 @@ import GuidedCapture, { type GuidedScanData } from './components/GuidedCapture';
 import TileRow from './components/TileRow';
 import TileGraphic from './components/TileGraphic';
 import MeldBuilder from './components/MeldBuilder';
+import TrainingConsentBanner from './components/TrainingConsentBanner';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -523,6 +524,34 @@ export default function Home() {
   // ── Result ────────────────────────────────────────────────────────────────
   const [result, setResult] = useState<ScoreResult | null>(null);
 
+  // ── Training data consent ─────────────────────────────────────────────────
+  const sessionId = useRef(crypto.randomUUID());
+  const [trainingConsent, setTrainingConsent] = useState<'granted' | 'denied' | null>(null);
+  const [showConsentBanner, setShowConsentBanner] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('trainingConsent');
+    if (stored === 'granted' || stored === 'denied') {
+      setTrainingConsent(stored);
+    }
+  }, []);
+
+  function handleConsentAccept() {
+    localStorage.setItem('trainingConsent', 'granted');
+    setTrainingConsent('granted');
+    setShowConsentBanner(false);
+  }
+
+  function handleConsentDecline() {
+    localStorage.setItem('trainingConsent', 'denied');
+    setTrainingConsent('denied');
+    setShowConsentBanner(false);
+  }
+
+  function maybeShowConsentBanner() {
+    if (trainingConsent === null) setShowConsentBanner(true);
+  }
+
   // ── Sync helpers ──────────────────────────────────────────────────────────
   function handleDealer(on: boolean) {
     setDealer(on);
@@ -584,6 +613,7 @@ export default function Home() {
   }
 
   async function handleHandCapture(base64: string) {
+    maybeShowConsentBanner();
     setIsDetectingHand(true);
     setDetectError(null);
     setHandScanned(true);
@@ -594,7 +624,7 @@ export default function Home() {
       const res = await fetch('/api/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mode: 'hand' }),
+        body: JSON.stringify({ image: base64, mode: 'hand', save: trainingConsent === 'granted', sessionId: sessionId.current }),
       });
       const data = await res.json();
       if (data.error) {
@@ -612,6 +642,7 @@ export default function Home() {
   }
 
   async function handleDoraCapture(base64: string) {
+    maybeShowConsentBanner();
     setIsDetectingDora(true);
     setDetectError(null);
     setDoraScanned(true);
@@ -621,7 +652,7 @@ export default function Home() {
       const res = await fetch('/api/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mode: 'dora' }),
+        body: JSON.stringify({ image: base64, mode: 'dora', save: trainingConsent === 'granted', sessionId: sessionId.current }),
       });
       const data = await res.json();
       if (data.error) {
@@ -637,6 +668,7 @@ export default function Home() {
   }
 
   async function handleGuidedCapture(data: GuidedScanData) {
+    maybeShowConsentBanner();
     setGuidedOpen(false);
     if (!data.fullImage || Object.keys(data.sections).length === 0) return;
 
@@ -665,6 +697,8 @@ export default function Home() {
           mode: 'guided',
           sections: data.sections,
           isLandscape: data.isLandscape,
+          save: trainingConsent === 'granted',
+          sessionId: sessionId.current,
         }),
       });
       const result = await res.json();
@@ -1241,9 +1275,38 @@ export default function Home() {
           {/* Buy Me a Coffee — hidden until account is connected
           <a href="#" ...>☕ Buy Me a Coffee</a>
           */}
+          {trainingConsent !== null && (
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <span className="text-xs" style={{ color: C.textDim }}>Contribute scan images for training</span>
+              <button
+                onClick={() => {
+                  const next = trainingConsent === 'granted' ? 'denied' : 'granted';
+                  localStorage.setItem('trainingConsent', next);
+                  setTrainingConsent(next);
+                }}
+                aria-pressed={trainingConsent === 'granted'}
+                className="flex-shrink-0 px-2.5 py-0.5 text-xs font-semibold tracking-widest uppercase rounded-sm transition-colors"
+                style={
+                  trainingConsent === 'granted'
+                    ? { background: 'rgba(201,162,39,0.15)', color: C.gold, border: `1px solid ${C.gold}` }
+                    : { background: 'transparent', color: C.textDim, border: `1px solid rgba(201,162,39,0.15)` }
+                }
+              >
+                {trainingConsent === 'granted' ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          )}
           <p className="text-xs" style={{ color: C.textDim }}>Made by Mitchell Magid</p>
         </footer>
       </div>
+
+      {/* ── Training consent banner ─────────────────────────────────────── */}
+      {showConsentBanner && (
+        <TrainingConsentBanner
+          onAccept={handleConsentAccept}
+          onDecline={handleConsentDecline}
+        />
+      )}
 
       {/* ── Guided capture overlay ───────────────────────────────────────── */}
       {guidedOpen && (

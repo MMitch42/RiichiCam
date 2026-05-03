@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { NextResponse } from 'next/server';
 import {
   parsePredictions,
@@ -6,6 +7,7 @@ import {
   type RawPrediction,
 } from '@/lib/scoring/roboflow-parser';
 import type { Tile } from '@/lib/scoring/types';
+import { saveTrainingImage } from '@/lib/training-storage';
 
 type SectionBox = { x: number; y: number; w: number; h: number };
 
@@ -71,12 +73,14 @@ export async function POST(request: Request) {
     image?: string;
     mode?: string;
     sections?: Partial<Record<'hand' | 'winning' | 'dora', SectionBox>>;
+    save?: boolean;
+    sessionId?: string;
   };
 
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
 
-  const { image, mode = 'hand', sections } = body;
+  const { image, mode = 'hand', sections, save = false, sessionId = 'unknown' } = body;
 
   if (!image || typeof image !== 'string') {
     return NextResponse.json({ error: 'Missing required field: image' }, { status: 400 });
@@ -99,6 +103,8 @@ export async function POST(request: Request) {
 
   const rawPredictions = roboflowData.predictions ?? [];
 
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
   // ── Guided mode: full frame sent, filter predictions by bounding box ──────
   if (mode === 'guided' && sections && roboflowData.image?.width && roboflowData.image?.height) {
     try {
@@ -108,6 +114,20 @@ export async function POST(request: Request) {
         roboflowData.image.width,
         roboflowData.image.height,
       );
+      if (save) {
+        after(async () => {
+          try {
+            await saveTrainingImage(image, {
+              timestamp,
+              mode,
+              sessionId,
+              predictions: rawPredictions,
+              imageWidth: roboflowData.image?.width,
+              imageHeight: roboflowData.image?.height,
+            });
+          } catch { /* non-critical — never fail a request over training storage */ }
+        });
+      }
       return NextResponse.json(result);
     } catch (err) {
       return NextResponse.json(
@@ -139,6 +159,21 @@ export async function POST(request: Request) {
       { error: 'Too many tiles detected. Try scanning hand and dora separately.' },
       { status: 422 },
     );
+  }
+
+  if (save) {
+    after(async () => {
+      try {
+        await saveTrainingImage(image, {
+          timestamp,
+          mode,
+          sessionId,
+          predictions: rawPredictions,
+          imageWidth: roboflowData.image?.width,
+          imageHeight: roboflowData.image?.height,
+        });
+      } catch { /* non-critical — never fail a request over training storage */ }
+    });
   }
 
   return NextResponse.json({ tiles });
