@@ -819,6 +819,7 @@ export default function Home() {
   }, [handTiles, melds, winType, seatWind, roundWind, doraIndicatorTiles, riichi, doubleRiichi, ippatsu, haitei, houtei, rinshan, chankan]);
 
   const canScore = handTiles.length + meldTileCount === 13 + numKans && winningTile !== null;
+  const winningTileValid = !winningTile || tenpaiWaits.some(w => tileMatchesValue(w, winningTile));
   const usedTiles: Tile[] = [
     ...handTiles,
     ...(winningTile ? [winningTile] : []),
@@ -931,9 +932,15 @@ export default function Home() {
                 >
                   {tenpaiWaits.length === 0 ? (
                     <div style={{ border: `1px solid ${C.goldBorderSm}`, borderRadius: 2, padding: '10px 14px' }}>
-                      <p className="text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: C.textSec }}>
+                      <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: C.textSec }}>
                         Winning Tile
                       </p>
+                      {winningTile && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <TileGraphic tile={winningTile} size="normal" />
+                          <span className="text-xs" style={{ color: C.textSec }}>{tileLabel(winningTile)} · remembered</span>
+                        </div>
+                      )}
                       <p className="text-xs" style={{ color: C.red }}>
                         Hand is not in tenpai — remove and re-add tiles to fix misdetections.
                       </p>
@@ -947,6 +954,13 @@ export default function Home() {
                         <div className="mb-3 flex items-center gap-2">
                           <TileGraphic tile={winningTile} size="normal" />
                           <span className="text-xs" style={{ color: C.textSec }}>{tileLabel(winningTile)}</span>
+                        </div>
+                      )}
+                      {winningTile && !winningTileValid && (
+                        <div className="mb-3 px-3 py-2 rounded-sm" style={{ background: 'rgba(201,162,39,0.08)', border: `1px solid ${C.goldBorder}` }}>
+                          <p className="text-xs" style={{ color: C.gold }}>
+                            ⚠ {tileLabel(winningTile)} is not a valid wait for this hand — select a different winning tile or fix any misdetections.
+                          </p>
                         </div>
                       )}
                       <div className="rounded-sm p-3 space-y-3" style={{ background: C.bg, border: `1px solid ${C.goldBorderSm}` }}>
