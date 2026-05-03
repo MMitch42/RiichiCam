@@ -53,15 +53,6 @@ export default function TrainingConsentBanner({ onAccept, onDecline }: Props) {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={onAccept}
-            className="flex-1 py-2.5 rounded-sm text-xs font-bold tracking-widest uppercase transition-colors"
-            style={{ background: C.gold, color: C.bg }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = C.goldBright; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = C.gold; }}
-          >
-            Yes, contribute
-          </button>
-          <button
             onClick={onDecline}
             className="flex-1 py-2.5 rounded-sm text-xs font-semibold tracking-widest uppercase transition-colors"
             style={{
@@ -73,6 +64,15 @@ export default function TrainingConsentBanner({ onAccept, onDecline }: Props) {
             onMouseLeave={(e) => { e.currentTarget.style.color = C.textSec; }}
           >
             No thanks
+          </button>
+          <button
+            onClick={onAccept}
+            className="flex-1 py-2.5 rounded-sm text-xs font-bold tracking-widest uppercase transition-colors"
+            style={{ background: C.gold, color: C.bg }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = C.goldBright; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = C.gold; }}
+          >
+            Yes, contribute
           </button>
         </div>
       </div>
