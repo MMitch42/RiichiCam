@@ -4,7 +4,8 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { score } from '@/lib/scoring';
 import { sortTiles } from '@/lib/scoring/tiles';
-import type { Hand, Meld, ScoreResult, Tile, SuitedValue, WindValue } from '@/lib/scoring/types';
+import type { Hand, Meld, ScoreResult, Tile, SuitedValue, WindValue, LocalYakuConfig } from '@/lib/scoring/types';
+import { DEFAULT_LOCAL_YAKU } from '@/lib/scoring/types';
 import CameraCapture from './components/CameraCapture';
 import GuidedCapture, { type GuidedScanData } from './components/GuidedCapture';
 import TileRow from './components/TileRow';
@@ -253,6 +254,17 @@ const YAKU_INFO: Record<string, { en: string; desc: string }> = {
   'suukantsu':        { en: 'Four Quads',                desc: 'All four groups are quads.' },
   'tenhou':           { en: 'Heavenly Hand',             desc: 'Dealer wins on their starting hand before the first discard.' },
   'chiihou':          { en: 'Earthly Hand',              desc: 'Non-dealer wins on their very first draw before anyone has made a call.' },
+  'honroutou':        { en: 'All Terminals & Honors',    desc: 'All tiles are terminals (1 or 9) or honor tiles, with at least one terminal and one honor present.' },
+  // Local yaku
+  'renho':            { en: 'Hand of Man',               desc: 'Non-dealer wins on the first round of discards before their first draw. (Local rule, 5 han)' },
+  'iipinmoyue':       { en: 'One-Pin Moon Reflection',  desc: 'Win by tsumo on the 1-pin tile. (Local rule, 1 han)' },
+  'chuupinraoyui':    { en: 'Nine-Pin Fishing',          desc: 'Win by ron on the 9-pin tile. (Local rule, 1 han)' },
+  'uumensai':         { en: 'Five Gates',                desc: 'Hand contains tiles from all five categories: man, pin, sou, winds, and dragons. (Local rule, 2 han)' },
+  'sanrenkou':        { en: 'Three Consecutive Triplets',desc: 'Three triplets of consecutive values in the same suit, e.g. 4-4-4, 5-5-5, 6-6-6 man. (Local rule, 2 han)' },
+  'suurenkou':        { en: 'Four Consecutive Triplets', desc: 'Four triplets of consecutive values in the same suit. (Local yakuman)' },
+  'daisharin':        { en: 'Big Wheel',                 desc: 'Seven pairs 22334455667788 all in circles (pin). (Local yakuman)' },
+  'daishichi':        { en: 'Big Seven Stars',           desc: 'Seven pairs using all seven different honor tiles. (Local yakuman)' },
+  'iisousanjun':      { en: 'Pure Triple Sequence',      desc: 'The same three-tile sequence three times in one suit. (Local rule, 1 han open / 2 han closed)' },
 };
 
 const HAND_NAME_LABELS: Record<string, string> = {
@@ -521,6 +533,25 @@ export default function Home() {
   const [houtei, setHoutei] = useState(false);
   const [rinshan, setRinshan] = useState(false);
   const [chankan, setChankan] = useState(false);
+  const [renho, setRenho] = useState(false);
+
+  // ── Local yaku config ─────────────────────────────────────────────────────
+  const [localYakuConfig, setLocalYakuConfig] = useState<LocalYakuConfig>(() => {
+    if (typeof window === 'undefined') return DEFAULT_LOCAL_YAKU;
+    try {
+      const stored = localStorage.getItem('localYakuConfig');
+      if (stored) return { ...DEFAULT_LOCAL_YAKU, ...JSON.parse(stored) };
+    } catch { /* ignore */ }
+    return DEFAULT_LOCAL_YAKU;
+  });
+
+  function setLocalYaku(key: keyof LocalYakuConfig, val: boolean) {
+    setLocalYakuConfig((prev) => {
+      const next = { ...prev, [key]: val };
+      localStorage.setItem('localYakuConfig', JSON.stringify(next));
+      return next;
+    });
+  }
 
   // ── Result ────────────────────────────────────────────────────────────────
   const [result, setResult] = useState<ScoreResult | null>(null);
@@ -771,6 +802,7 @@ export default function Home() {
       houtei: winType === 'ron' && houtei,
       rinshan: winType === 'tsumo' && rinshan,
       chankan: winType === 'ron' && chankan,
+      renho: renho && seatWind !== 'east',
       uraDoraIndicators: undefined,
     };
   }
@@ -778,7 +810,7 @@ export default function Home() {
   function handleScore() {
     const hand = buildHand();
     if (!hand) return;
-    setResult(score(hand));
+    setResult(score(hand, { localYaku: localYakuConfig }));
   }
 
   function handleMeldsChange(newMelds: Meld[]) {
@@ -1056,7 +1088,7 @@ export default function Home() {
               tiles={doraIndicatorTiles}
               onChange={setDoraIndicatorTiles}
               maxTiles={8}
-              usedTiles={doraIndicatorTiles}
+              usedTiles={[...usedTiles, ...doraIndicatorTiles]}
               forceOpen={doraPaletteForced}
               onForceClose={() => setDoraPaletteForced(false)}
             />
@@ -1254,6 +1286,75 @@ export default function Home() {
               value={chankan}
               onChange={setChankan}
               disabled={winType !== 'ron'}
+            />
+            <Toggle
+              label="Renho (Hand of Man)"
+              sub="Non-dealer wins on the first round of discards before drawing. Only counts if Local Yaku → Renho is enabled."
+              value={renho}
+              onChange={setRenho}
+              disabled={seatWind === 'east' || !localYakuConfig.renho}
+            />
+          </Disclosure>
+
+          {/* Local yaku */}
+          <Disclosure label="Local yaku">
+            <p className="text-xs pb-2" style={{ color: C.textSec }}>
+              House rules not used in standard play. Enable only if your game uses them.
+            </p>
+            <Toggle
+              label="Renho · 人和"
+              sub="Non-dealer wins on first-round discard before drawing (5 han)."
+              value={localYakuConfig.renho}
+              onChange={(v) => setLocalYaku('renho', v)}
+            />
+            <Toggle
+              label="Iipinmoyue · 一筒摸月"
+              sub="Win by tsumo on 1-pin (1 han)."
+              value={localYakuConfig.iipinmoyue}
+              onChange={(v) => setLocalYaku('iipinmoyue', v)}
+            />
+            <Toggle
+              label="Chuupinraoyui · 九筒撈魚"
+              sub="Win by ron on 9-pin (1 han)."
+              value={localYakuConfig.chuupinraoyui}
+              onChange={(v) => setLocalYaku('chuupinraoyui', v)}
+            />
+            <Toggle
+              label="Uumensai · 五門斉"
+              sub="Hand contains all five tile categories: man, pin, sou, winds, dragons (2 han)."
+              value={localYakuConfig.uumensai}
+              onChange={(v) => setLocalYaku('uumensai', v)}
+            />
+            <Toggle
+              label="Sanrenkou · 三連刻"
+              sub="Three triplets of consecutive values in the same suit, e.g. 4-4-4 5-5-5 6-6-6 (2 han)."
+              value={localYakuConfig.sanrenkou}
+              onChange={(v) => setLocalYaku('sanrenkou', v)}
+            />
+            <Toggle
+              label="Iisousanjun · 一色三順"
+              sub="Same three-tile sequence three times in one suit (1 han open / 2 han closed)."
+              value={localYakuConfig.iisousanjun}
+              onChange={(v) => setLocalYaku('iisousanjun', v)}
+            />
+            <p className="text-xs pt-2 pb-1 font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Yakuman</p>
+            <Toggle
+              label="Daisharin · 大車輪"
+              sub="Seven pairs 22334455667788 all in circles (pin)."
+              value={localYakuConfig.daisharin}
+              onChange={(v) => setLocalYaku('daisharin', v)}
+            />
+            <Toggle
+              label="Daishichi · 大七星"
+              sub="Seven pairs using all seven different honor tiles."
+              value={localYakuConfig.daishichi}
+              onChange={(v) => setLocalYaku('daishichi', v)}
+            />
+            <Toggle
+              label="Suurenkou · 四連刻"
+              sub="Four triplets of consecutive values in the same suit."
+              value={localYakuConfig.suurenkou}
+              onChange={(v) => setLocalYaku('suurenkou', v)}
             />
           </Disclosure>
         </section>

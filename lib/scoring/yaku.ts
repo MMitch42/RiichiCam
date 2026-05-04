@@ -1,4 +1,4 @@
-import type { Hand, Tile, Meld, WindValue, SuitedTile, RulesConfig, Yaku } from "./types";
+import type { Hand, Tile, Meld, WindValue, SuitedTile, HonorTile, RulesConfig, Yaku, LocalYakuConfig } from "./types";
 import type { HandInterpretation, ChiitoitsuInterpretation, KokushiInterpretation, TileGroup } from "./hand-parser";
 import {
   isSuited,
@@ -275,6 +275,11 @@ export function detectYaku(
     yaku.push({ name: "junchan", nameJa: "純全帯么九", han, isYakuman: false });
   }
 
+  // Honroutou: all tiles are terminals or honors (mix — not pure honors or pure terminals)
+  if (tiles.every(isTerminalOrHonor) && tiles.some(isHonor) && tiles.some((t) => isSuited(t) && isTerminal(t))) {
+    yaku.push({ name: "honroutou", nameJa: "混老頭", han: 2, isYakuman: false });
+  }
+
   // Shousangen: pair is dragon + two dragon triplets
   const dragonTripletCount = allTriplets.filter((t) => isDragon(t[0])).length;
   const pairIsDragon = isDragon(interp.pair);
@@ -313,6 +318,74 @@ export function detectYaku(
     }
   }
 
+  // ── Local yaku ────────────────────────────────────────────────────────────
+  const local: LocalYakuConfig | undefined = rules.localYaku;
+  if (local) {
+    // Renho: non-dealer wins on first round of discards before their draw
+    if (local.renho && hand.renho && hand.seatWind !== "east") {
+      yaku.push({ name: "renho", nameJa: "人和", han: 5, isYakuman: false });
+    }
+
+    // Iipinmoyue: win by tsumo on 1-pin
+    if (local.iipinmoyue && hand.winType === "tsumo" &&
+        isSuited(hand.winningTile) && (hand.winningTile as SuitedTile).suit === "pin" &&
+        (hand.winningTile as SuitedTile).value === 1) {
+      yaku.push({ name: "iipinmoyue", nameJa: "一筒摸月", han: 1, isYakuman: false });
+    }
+
+    // Chuupinraoyui: win by ron on 9-pin
+    if (local.chuupinraoyui && hand.winType === "ron" &&
+        isSuited(hand.winningTile) && (hand.winningTile as SuitedTile).suit === "pin" &&
+        (hand.winningTile as SuitedTile).value === 9) {
+      yaku.push({ name: "chuupinraoyui", nameJa: "九筒撈魚", han: 1, isYakuman: false });
+    }
+
+    // Uumensai: all five categories present — man, pin, sou, wind, dragon
+    if (local.uumensai) {
+      const hasMan = tiles.some((t) => isSuited(t) && (t as SuitedTile).suit === "man");
+      const hasPin = tiles.some((t) => isSuited(t) && (t as SuitedTile).suit === "pin");
+      const hasSou = tiles.some((t) => isSuited(t) && (t as SuitedTile).suit === "sou");
+      const hasWind = tiles.some(isWind);
+      const hasDragon = tiles.some(isDragon);
+      if (hasMan && hasPin && hasSou && hasWind && hasDragon) {
+        yaku.push({ name: "uumensai", nameJa: "五門斉", han: 2, isYakuman: false });
+      }
+    }
+
+    // Sanrenkou: three triplets of consecutive values in the same suit
+    if (local.sanrenkou) {
+      outer: for (const suit of ["man", "pin", "sou"] as const) {
+        const vals = allTriplets
+          .filter((t) => isSuited(t[0]) && (t[0] as SuitedTile).suit === suit)
+          .map((t) => (t[0] as SuitedTile).value as number)
+          .sort((a, b) => a - b);
+        for (let i = 0; i <= vals.length - 3; i++) {
+          if (vals[i + 1] === vals[i] + 1 && vals[i + 2] === vals[i] + 2) {
+            yaku.push({ name: "sanrenkou", nameJa: "三連刻", han: 2, isYakuman: false });
+            break outer;
+          }
+        }
+      }
+    }
+
+    // Iisou sanjun: same sequence three times in the same suit
+    if (local.iisousanjun) {
+      const seqKeyCounts = new Map<string, number>();
+      for (const s of allSeqs) {
+        if (!isSuited(s.tiles[0])) continue;
+        const sorted = sortTiles(s.tiles).filter(isSuited) as SuitedTile[];
+        const key = `${sorted[0].suit}:${sorted[0].value}`;
+        seqKeyCounts.set(key, (seqKeyCounts.get(key) ?? 0) + 1);
+      }
+      for (const count of seqKeyCounts.values()) {
+        if (count >= 3) {
+          yaku.push({ name: "iisousanjun", nameJa: "一色三順", han: open ? 1 : 2, isYakuman: false });
+          break;
+        }
+      }
+    }
+  }
+
   return yaku;
 }
 
@@ -335,7 +408,35 @@ export function detectYakuman(
     return yaku;
   }
 
-  if (parsed.type === "chiitoitsu") return yaku; // no yakuman from chiitoitsu (except tsuuiisou)
+  if (parsed.type === "chiitoitsu") {
+    const chiitoi = parsed.interp;
+    const local = rules.localYaku;
+
+    // Daishichi: seven pairs using all seven different honor tiles
+    if (local?.daishichi) {
+      const pairTiles = chiitoi.pairs;
+      const allHonors = pairTiles.every(isHonor);
+      const uniqueHonors = new Set(pairTiles.map((t) => (t as HonorTile).value)).size === 7;
+      if (allHonors && uniqueHonors) {
+        yaku.push({ name: "daishichi", nameJa: "大七星", han: 13, isYakuman: true });
+      }
+    }
+
+    // Daisharin: 22334455667788 pin (all circles chiitoitsu)
+    if (local?.daisharin) {
+      const pairTiles = chiitoi.pairs;
+      const allPin = pairTiles.every((t) => isSuited(t) && (t as SuitedTile).suit === "pin");
+      if (allPin) {
+        const vals = pairTiles.map((t) => (t as SuitedTile).value).sort((a, b) => a - b);
+        const expected = [2, 3, 4, 5, 6, 7, 8];
+        if (vals.join() === expected.join()) {
+          yaku.push({ name: "daisharin", nameJa: "大車輪", han: 13, isYakuman: true });
+        }
+      }
+    }
+
+    return yaku;
+  }
 
   const interp = parsed.interpretation;
   const tiles = allTiles(interp, melds);
@@ -394,6 +495,37 @@ export function detectYakuman(
   ).length;
   if (kanCount === 4) {
     yaku.push({ name: "suukantsu", nameJa: "四槓子", han: 13, isYakuman: true });
+  }
+
+  // Suurenkou: four triplets of consecutive values in the same suit (local yakuman)
+  if (rules.localYaku?.suurenkou) {
+    const allTripletGroupsLocal = [
+      ...interp.groups.filter((g) => g.type === "triplet"),
+      ...melds
+        .filter((m) => m.type === "pon" || m.type === "kan-open" || m.type === "kan-closed" || m.type === "kan-added")
+        .map((m) => ({ type: "triplet" as const, tiles: m.tiles })),
+    ];
+    let foundSuurenkou = false;
+    for (const suit of ["man", "pin", "sou"] as const) {
+      const vals = allTripletGroupsLocal
+        .filter((g) => isSuited(g.tiles[0]) && (g.tiles[0] as SuitedTile).suit === suit)
+        .map((g) => (g.tiles[0] as SuitedTile).value as number)
+        .sort((a, b) => a - b);
+      for (let i = 0; i <= vals.length - 4; i++) {
+        if (
+          vals[i + 1] === vals[i] + 1 &&
+          vals[i + 2] === vals[i] + 2 &&
+          vals[i + 3] === vals[i] + 3
+        ) {
+          foundSuurenkou = true;
+          break;
+        }
+      }
+      if (foundSuurenkou) break;
+    }
+    if (foundSuurenkou) {
+      yaku.push({ name: "suurenkou", nameJa: "四連刻", han: 13, isYakuman: true });
+    }
   }
 
   // Chuurenpoutou: 1112345678999 in one suit + one more of any in that suit (closed)

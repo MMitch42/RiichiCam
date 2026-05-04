@@ -63,6 +63,7 @@ export interface Hand {
   houtei: boolean;   // ron on the last discard
   rinshan: boolean;  // win after kan supplemental draw
   chankan: boolean;  // win by stealing a pon→kan extension
+  renho?: boolean;   // non-dealer wins on first round of discards (Hand of Man)
 }
 
 // ─── Score result ─────────────────────────────────────────────────────────────
@@ -120,6 +121,41 @@ export interface ScoreResult {
   handName?: HandName;
 }
 
+// ─── Local yaku config ────────────────────────────────────────────────────────
+
+export interface LocalYakuConfig {
+  /** 人和 — Non-dealer wins on first round of discards before their draw (5 han) */
+  renho: boolean;
+  /** 一筒摸月 — Win by tsumo on 1-pin (1 han) */
+  iipinmoyue: boolean;
+  /** 九筒撈魚 — Win by ron on 9-pin (1 han) */
+  chuupinraoyui: boolean;
+  /** 大車輪 — 22334455667788 all circles (yakuman, chiitoitsu form) */
+  daisharin: boolean;
+  /** 大七星 — Seven pairs of all different honor tiles (yakuman) */
+  daishichi: boolean;
+  /** 三連刻 — Three triplets of consecutive values in same suit (2 han) */
+  sanrenkou: boolean;
+  /** 四連刻 — Four triplets of consecutive values in same suit (yakuman) */
+  suurenkou: boolean;
+  /** 五門斉 — All five categories present: man, pin, sou, wind, dragon (2 han) */
+  uumensai: boolean;
+  /** 一色三順 — Same three-tile sequence three times in one suit (1 han open, 2 han closed) */
+  iisousanjun: boolean;
+}
+
+export const DEFAULT_LOCAL_YAKU: LocalYakuConfig = {
+  renho: false,
+  iipinmoyue: false,
+  chuupinraoyui: false,
+  daisharin: false,
+  daishichi: false,
+  sanrenkou: false,
+  suurenkou: false,
+  uumensai: false,
+  iisousanjun: false,
+};
+
 // ─── Rules config ─────────────────────────────────────────────────────────────
 
 export interface RulesConfig {
@@ -145,6 +181,9 @@ export interface RulesConfig {
    * Default: 3.
    */
   akaDoraCount: 0 | 3 | 4;
+
+  /** Optional local/house yaku — all disabled by default */
+  localYaku?: LocalYakuConfig;
 }
 
 export const DEFAULT_RULES: RulesConfig = {
@@ -153,4 +192,5 @@ export const DEFAULT_RULES: RulesConfig = {
   doubleYakuman: false,
   doubleWindPairFu: 4,
   akaDoraCount: 3,
+  localYaku: DEFAULT_LOCAL_YAKU,
 };
