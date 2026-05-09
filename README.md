@@ -4,7 +4,7 @@ Riichi mahjong hand scorer with camera tile detection. Scan your hand, confirm c
 
 Built with Next.js App Router, TypeScript, and Tailwind CSS. Deployed on Vercel.
 
-**[Live app](http://riichi-cam.vercel.app) · [Give feedback](mailto:support.riichicam@gmail.com?subject=RiichiCam%20Feedback)**
+**[Live app](http://riichicam.com) · [Give feedback](mailto:support.riichicam@gmail.com?subject=RiichiCam%20Feedback)**
 
 ---
 
