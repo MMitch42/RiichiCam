@@ -34,7 +34,7 @@ const STEPS = [
   {
     n: '03',
     title: 'Get your score',
-    body: 'Instantly see every yaku detected, a full fu breakdown, total han, and exact payments — dealer and non-dealer.',
+    body: 'Instantly see every yaku detected, a full fu breakdown, total han, and exact payments for dealer and non-dealer wins.',
   },
 ];
 
@@ -49,11 +49,11 @@ const FEATURES = [
   },
   {
     title: 'Full fu breakdown',
-    body: 'See exactly how fu is calculated — base, melds, pair, wait, and tsumo — rounded to the nearest 10.',
+    body: 'See exactly how fu is calculated across base, melds, pair, wait, and tsumo, rounded to the nearest 10.',
   },
   {
-    title: 'Installable on mobile',
-    body: 'Add RiichiCam to your home screen as a PWA. Works in your pocket at the table.',
+    title: 'iOS and Android',
+    body: 'Add RiichiCam to your home screen as a PWA on any device. Works in your pocket at the table.',
   },
 ];
 
@@ -72,7 +72,7 @@ const FAQ = [
   },
   {
     q: 'Does it support all yaku?',
-    a: 'Yes — all standard yaku and yakuman are supported. Optional local yaku (Renho, Daisharin, Sanrenkou, and others) can be toggled on in the Local Yaku section.',
+    a: 'Yes, all standard yaku and yakuman are supported. Optional local yaku (Renho, Daisharin, Sanrenkou, and others) can be toggled on in the Local Yaku section.',
   },
   {
     q: 'Is it free?',
@@ -145,7 +145,7 @@ export default function LandingPage() {
             maxWidth: 360,
           }}>
             Scan your tiles with your camera or input them manually.
-            RiichiCam calculates yaku, fu, han, and payments instantly — free, no account needed.
+            RiichiCam calculates yaku, fu, han, and payments instantly. Free, no account needed.
           </p>
           <a
             href="/score"
@@ -165,7 +165,7 @@ export default function LandingPage() {
             Open Scorer
           </a>
           <p style={{ marginTop: 12, fontSize: 11, color: C.textSec, letterSpacing: '0.05em' }}>
-            Free · No account · Works on mobile
+            Free · No account · iOS and Android
           </p>
         </section>
 
@@ -302,6 +302,12 @@ export default function LandingPage() {
         </section>
 
         {/* ── Footer ──────────────────────────────────────────────────── */}
+        <style>{`
+          .lp-btn-outline { transition: border-color 0.15s, color 0.15s; }
+          .lp-btn-outline:hover { border-color: ${C.gold} !important; color: ${C.gold} !important; }
+          .lp-btn-gold:hover { background: ${C.goldBright} !important; }
+          .lp-link:hover { color: ${C.gold} !important; }
+        `}</style>
         <footer style={{
           paddingBottom: 40,
           borderTop: `1px solid ${C.goldBorderXs}`,
@@ -310,10 +316,27 @@ export default function LandingPage() {
           flexDirection: 'column',
           gap: 12,
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <a
               href="mailto:support.riichicam@gmail.com?subject=RiichiCam Feedback"
-              style={{ fontSize: 11, color: C.textSec, textDecoration: 'none', letterSpacing: '0.05em' }}
+              className="lp-btn-outline"
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px 0',
+                borderRadius: 2,
+                border: `1px solid ${C.goldBorderSm}`,
+                color: C.textSec,
+                background: 'transparent',
+                textDecoration: 'none',
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                maxWidth: 160,
+              }}
             >
               Give Feedback
             </a>
@@ -321,7 +344,24 @@ export default function LandingPage() {
               href="https://buymeacoffee.com/RiichiCam"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontSize: 11, color: C.gold, textDecoration: 'none', letterSpacing: '0.05em' }}
+              className="lp-btn-gold"
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '6px 0',
+                borderRadius: 2,
+                background: C.gold,
+                color: C.bg,
+                textDecoration: 'none',
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                maxWidth: 160,
+                border: 'none',
+              }}
             >
               ☕ Buy Me a Coffee
             </a>
@@ -331,7 +371,8 @@ export default function LandingPage() {
               href="https://github.com/MMitch42/RiichiCam"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ fontSize: 11, color: C.textSec, textDecoration: 'none' }}
+              className="lp-link"
+              style={{ fontSize: 11, color: C.textSec, textDecoration: 'none', transition: 'color 0.15s' }}
             >
               View on GitHub
             </a>
