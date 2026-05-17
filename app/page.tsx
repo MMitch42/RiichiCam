@@ -316,27 +316,11 @@ export default function LandingPage() {
           flexDirection: 'column',
           gap: 12,
         }}>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="flex justify-center gap-2">
             <a
               href="mailto:support.riichicam@gmail.com?subject=RiichiCam Feedback"
-              className="lp-btn-outline"
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '6px 0',
-                borderRadius: 2,
-                border: `1px solid ${C.goldBorderSm}`,
-                color: C.textSec,
-                background: 'transparent',
-                textDecoration: 'none',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                maxWidth: 160,
-              }}
+              className="lp-btn-outline flex-1 flex items-center justify-center py-1.5 rounded-sm text-xs font-semibold tracking-wide"
+              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent', textDecoration: 'none', maxWidth: 160 }}
             >
               Give Feedback
             </a>
@@ -344,24 +328,8 @@ export default function LandingPage() {
               href="https://buymeacoffee.com/RiichiCam"
               target="_blank"
               rel="noopener noreferrer"
-              className="lp-btn-gold"
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '6px 0',
-                borderRadius: 2,
-                background: C.gold,
-                color: C.bg,
-                textDecoration: 'none',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                maxWidth: 160,
-                border: 'none',
-              }}
+              className="lp-btn-gold flex-1 flex items-center justify-center py-1.5 rounded-sm text-xs font-semibold tracking-wide"
+              style={{ background: C.gold, color: C.bg, textDecoration: 'none', maxWidth: 160, border: 'none' }}
             >
               ☕ Buy Me a Coffee
             </a>
