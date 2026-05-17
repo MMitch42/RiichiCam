@@ -79,20 +79,20 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     setIsLandscape(vW >= vH);
   }, []);
 
-  // Lock body scroll while overlay is open (prevents scroll-through on iOS Safari
-  // and the black-top artifact that appears when the page is scrolled behind a fixed overlay).
+  // Lock body scroll while overlay is open. We intentionally avoid position:fixed on
+  // the body — on iOS Safari, fixed children of a fixed body are offset by the body's
+  // top value, producing a permanent black gap at the top of the camera view.
   useEffect(() => {
-    const scrollY = window.scrollY;
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = '100%';
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevOverscroll   = document.body.style.overscrollBehavior;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow            = 'hidden';
+    document.body.style.overscrollBehavior  = 'none';
     return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.top = '';
-      document.body.style.width = '';
-      window.scrollTo(0, scrollY);
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow            = prevBodyOverflow;
+      document.body.style.overscrollBehavior  = prevOverscroll;
     };
   }, []);
 

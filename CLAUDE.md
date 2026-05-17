@@ -12,7 +12,9 @@ lib/scoring/
   points.ts      # calculatePoints(), handName()
   index.ts       # score(hand, rules?) → ScoreResult — public entry point
   __tests__/
-    scoring.test.ts  # 38 tests (vitest)
+    scoring.test.ts      # 39 tests (vitest)
+    fu-points.test.ts    # 28 tests
+    roboflow-parser.test.ts  # 1 test
 ```
 
 ### Key design decisions
@@ -43,24 +45,24 @@ lib/scoring/
 ### Step 1 — Scoring engine (DONE)
 - Next.js 14 App Router scaffold, TypeScript strict, Tailwind, Vitest
 - Pure `score()` function, all yaku/yakuman, fu, points
-- 38 tests passing, clean build
+- 67 tests passing (scoring.test.ts + fu-points.test.ts), clean build
 
-### Step 2 — Manual scoring UI
-- Page: tile picker (select 13 closed tiles + winning tile + melds)
-- Wind/flags form (seat wind, round wind, riichi, etc.)
-- ScoreResult display: yaku list, fu breakdown, payment table
-- No camera, no server state — all client-side
+### Step 2 — Manual scoring UI (DONE)
+- Tile picker: full 34-tile palette, winning tile, open melds (chi/pon/kan)
+- Wind/flags form: seat/round wind, riichi, double riichi, ippatsu, haitei/houtei/rinshan/chankan/renho, honba
+- ScoreResult display: yaku list with tooltips, fu breakdown panel, payment table, tenpai calculator
+- Local storage for rules preferences
 
-### Step 3 — Camera tile recognition
-- Next.js API route or Server Action calling a vision model (e.g., Claude claude-sonnet-4-6)
-- Upload photo → detect tiles → pre-fill the manual scorer
-- Confidence display; user can correct misdetections
+### Step 3 — Camera tile recognition (DONE)
+- Primary: Roboflow custom-trained model (`riichicam/3`) via `/api/detect`
+- Fallback: Google Gemini 2.0 Flash via `/api/detect-gemini`
+- Modes: individual (hand/dora/winning tile separately) and guided (full-frame with bounding box sections)
+- User correction flow, scan preview with lightbox, training data saving to Vercel Blob with consent banner
 
-### Step 4 — Persistent history
-- Store scored hands (Vercel Blob or Postgres via Marketplace)
-- Simple list view with replay
+### Step 4 — Persistent history (NOT STARTED)
+- Training image storage exists (Vercel Blob) but no scored hand history
+- Missing: hand history list view, replay, shareable hand links, Postgres/Neon integration
 
-### Step 5 — Polish
-- Keyboard shortcuts, mobile layout
-- Shareable hand links
-- Riichi/rule variant settings page
+### Step 5 — Polish (PARTIAL)
+- Done: mobile-first layout, PWA manifest + install banner, dark theme, Buy Me a Coffee link, landing page with FAQ
+- Missing: keyboard shortcuts, dedicated rule variant settings page, shareable hand links (URL encoding)
