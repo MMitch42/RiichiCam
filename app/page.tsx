@@ -887,6 +887,7 @@ export default function Home() {
             <div className="flex-1">
               <h1 className="text-2xl font-bold tracking-[0.12em] uppercase leading-tight" style={{ color: C.gold }}>RiichiCam</h1>
               <p className="text-xs mt-0.5 tracking-widest uppercase" style={{ color: C.textSec }}>Riichi mahjong scorer</p>
+              <p className="text-xs mt-1 leading-relaxed" style={{ color: C.textDim }}>Scan tiles with your camera or input manually — calculates yaku, fu, han, and payments.</p>
             </div>
           </div>
         </div>
