@@ -887,7 +887,7 @@ export default function Home() {
             <div className="flex-1">
               <h1 className="text-2xl font-bold tracking-[0.12em] uppercase leading-tight" style={{ color: C.gold }}>RiichiCam</h1>
               <p className="text-xs mt-0.5 tracking-widest uppercase" style={{ color: C.textSec }}>Riichi mahjong scorer</p>
-              <p className="text-xs mt-1 leading-relaxed" style={{ color: C.textDim }}>Scan tiles with your camera or input manually — calculates yaku, fu, han, and payments.</p>
+              <p className="text-xs mt-1 leading-relaxed" style={{ color: C.textSec, opacity: 0.6 }}>Scan tiles with your camera or input manually to calculate yaku, fu, han, and payments.</p>
             </div>
           </div>
         </div>
@@ -975,7 +975,7 @@ export default function Home() {
                         </div>
                       )}
                       <p className="text-xs" style={{ color: C.red }}>
-                        Hand is not in tenpai — remove and re-add tiles to fix misdetections.
+                        Hand is not in tenpai. Remove and re-add tiles to fix misdetections.
                       </p>
                     </div>
                   ) : (
@@ -992,7 +992,7 @@ export default function Home() {
                       {winningTile && !winningTileValid && (
                         <div className="mb-3 px-3 py-2 rounded-sm" style={{ background: 'rgba(201,162,39,0.08)', border: `1px solid ${C.goldBorder}` }}>
                           <p className="text-xs" style={{ color: C.gold }}>
-                            ⚠ {tileLabel(winningTile)} is not a valid wait for this hand — select a different winning tile or fix any misdetections.
+                            ⚠ {tileLabel(winningTile)} is not a valid wait for this hand. Select a different winning tile or fix any misdetections.
                           </p>
                         </div>
                       )}

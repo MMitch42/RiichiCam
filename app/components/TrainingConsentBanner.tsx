@@ -47,7 +47,7 @@ export default function TrainingConsentBanner({ onAccept, onDecline }: Props) {
           </p>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: C.textSec }}>
             Your scanned tile images can be saved anonymously to train better detection models.
-            No personal data is collected — only the tile images you scan.
+            No personal data is collected, only the tile images you scan.
             You can change this any time in the footer.
           </p>
         </div>
