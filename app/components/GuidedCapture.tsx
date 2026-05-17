@@ -79,6 +79,23 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     setIsLandscape(vW >= vH);
   }, []);
 
+  // Lock body scroll while overlay is open (prevents scroll-through on iOS Safari
+  // and the black-top artifact that appears when the page is scrolled behind a fixed overlay).
+  useEffect(() => {
+    const scrollY = window.scrollY;
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, []);
+
   useEffect(() => {
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } })

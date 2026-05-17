@@ -252,6 +252,27 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── CTA ─────────────────────────────────────────────────────── */}
+        <section style={{ paddingBottom: 56, textAlign: 'center' }}>
+          <a
+            href="/score"
+            style={{
+              display: 'inline-block',
+              padding: '14px 32px',
+              background: C.gold,
+              color: C.bg,
+              fontWeight: 700,
+              fontSize: 13,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              textDecoration: 'none',
+              borderRadius: 2,
+            }}
+          >
+            Open Scorer
+          </a>
+        </section>
+
         {/* ── FAQ ─────────────────────────────────────────────────────── */}
         <section style={{ paddingBottom: 56 }}>
           <p style={{
