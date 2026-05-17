@@ -1,0 +1,1510 @@
+'use client';
+
+import { useState, useMemo, useRef, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import { score } from '@/lib/scoring';
+import { sortTiles } from '@/lib/scoring/tiles';
+import type { Hand, Meld, ScoreResult, Tile, SuitedValue, WindValue, LocalYakuConfig } from '@/lib/scoring/types';
+import { DEFAULT_LOCAL_YAKU } from '@/lib/scoring/types';
+import CameraCapture from '../components/CameraCapture';
+import GuidedCapture, { type GuidedScanData } from '../components/GuidedCapture';
+import TileRow from '../components/TileRow';
+import TileGraphic from '../components/TileGraphic';
+import MeldBuilder from '../components/MeldBuilder';
+import TrainingConsentBanner from '../components/TrainingConsentBanner';
+import PWAInstallBanner from '../components/PWAInstallBanner';
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const C = {
+  bg:           '#080c12',
+  surface:      '#0f1520',
+  surfaceEl:    '#141c28',
+  gold:         '#c9a227',
+  goldBright:   '#e8c547',
+  goldMuted:    'rgba(201,162,39,0.25)',
+  goldBorder:   'rgba(201,162,39,0.35)',
+  goldBorderSm: 'rgba(201,162,39,0.2)',
+  goldBorderXs: 'rgba(201,162,39,0.15)',
+  goldHover:    'rgba(201,162,39,0.08)',
+  text:         '#f0ead8',
+  textSec:      '#8a7f6a',
+  textDim:      '#4a4438',
+  red:          '#a83228',
+  redText:      '#cc5544',
+};
+
+// ─── Reusable UI primitives ───────────────────────────────────────────────────
+
+function Toggle({
+  label,
+  sub,
+  value,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  sub?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className={`py-3 ${disabled ? 'opacity-40 pointer-events-none' : ''}`}>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium" style={{ color: C.text }}>{label}</span>
+        <button
+          onClick={() => onChange(!value)}
+          aria-pressed={value}
+          className="flex-shrink-0 px-3 py-1 text-xs font-semibold tracking-widest uppercase rounded-sm transition-colors"
+          style={
+            value
+              ? { background: C.goldMuted, color: C.gold, border: `1px solid ${C.gold}` }
+              : { background: 'transparent', color: C.textSec, border: `1px solid ${C.goldBorderSm}` }
+          }
+        >
+          {value ? 'ON' : 'OFF'}
+        </button>
+      </div>
+      {sub && <p className="text-xs mt-1 pr-16" style={{ color: C.textSec }}>{sub}</p>}
+    </div>
+  );
+}
+
+function Stepper({
+  label,
+  sub,
+  value,
+  onChange,
+  min,
+  max,
+}: {
+  label: string;
+  sub?: string;
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+}) {
+  return (
+    <div className="py-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-medium" style={{ color: C.text }}>{label}</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onChange(Math.max(min, value - 1))}
+            disabled={value <= min}
+            className="w-8 h-8 text-lg font-medium flex items-center justify-center rounded-sm disabled:opacity-40 transition-colors"
+            style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${C.goldBorderSm}` }}
+          >
+            −
+          </button>
+          <span className="w-5 text-center text-base font-semibold tabular-nums" style={{ color: C.text }}>{value}</span>
+          <button
+            onClick={() => onChange(Math.min(max, value + 1))}
+            disabled={value >= max}
+            className="w-8 h-8 text-lg font-medium flex items-center justify-center rounded-sm disabled:opacity-40 transition-colors"
+            style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${C.goldBorderSm}` }}
+          >
+            +
+          </button>
+        </div>
+      </div>
+      {sub && <p className="text-xs mt-1" style={{ color: C.textSec }}>{sub}</p>}
+    </div>
+  );
+}
+
+function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { label: string; value: T }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div className="py-3">
+      <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: C.textSec }}>{label}</p>
+      <div className="flex rounded-sm overflow-hidden" style={{ border: `1px solid ${C.goldBorderSm}`, background: C.surfaceEl }}>
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => onChange(opt.value)}
+            className="flex-1 py-2.5 text-sm font-semibold tracking-wide transition-colors"
+            style={
+              value === opt.value
+                ? { background: C.gold, color: C.bg }
+                : { background: 'transparent', color: C.textSec }
+            }
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Disclosure({ label, children, defaultOpen = false }: { label: string; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between py-3 text-left"
+      >
+        <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.gold }}>{label}</span>
+        <span className="text-xs" style={{ color: C.gold }}>{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div className="pb-3 space-y-0 rounded-sm px-3 py-1 mb-2" style={{ background: C.surface }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Winning tile palette ─────────────────────────────────────────────────────
+
+const ALL_TILES: Tile[] = [
+  ...[1,2,3,4,5,6,7,8,9].map(v => ({ suit: 'man' as const, value: v as SuitedValue })),
+  { suit: 'man' as const, value: 5 as SuitedValue, isAka: true },
+  ...[1,2,3,4,5,6,7,8,9].map(v => ({ suit: 'pin' as const, value: v as SuitedValue })),
+  { suit: 'pin' as const, value: 5 as SuitedValue, isAka: true },
+  ...[1,2,3,4,5,6,7,8,9].map(v => ({ suit: 'sou' as const, value: v as SuitedValue })),
+  { suit: 'sou' as const, value: 5 as SuitedValue, isAka: true },
+  { suit: 'honor' as const, value: 'east'  as const },
+  { suit: 'honor' as const, value: 'south' as const },
+  { suit: 'honor' as const, value: 'west'  as const },
+  { suit: 'honor' as const, value: 'north' as const },
+  { suit: 'honor' as const, value: 'haku'  as const },
+  { suit: 'honor' as const, value: 'hatsu' as const },
+  { suit: 'honor' as const, value: 'chun'  as const },
+];
+
+const WINNING_PALETTE_ROWS = [
+  { label: 'Man · Characters', tiles: ALL_TILES.filter(t => t.suit === 'man') },
+  { label: 'Pin · Circles',    tiles: ALL_TILES.filter(t => t.suit === 'pin') },
+  { label: 'Sou · Bamboo',     tiles: ALL_TILES.filter(t => t.suit === 'sou') },
+  { label: 'Honors',           tiles: ALL_TILES.filter(t => t.suit === 'honor') },
+];
+
+function tileMatchesValue(a: Tile, b: Tile) {
+  return a.suit === b.suit && a.value === b.value;
+}
+
+function tileMatchesExact(a: Tile, b: Tile) {
+  const aAka = a.suit !== 'honor' ? !!a.isAka : false;
+  const bAka = b.suit !== 'honor' ? !!b.isAka : false;
+  return a.suit === b.suit && a.value === b.value && aAka === bAka;
+}
+
+function tileLabel(tile: Tile): string {
+  if (tile.suit === 'honor') {
+    if (tile.value === 'haku') return 'Haku (White Dragon)';
+    if (tile.value === 'hatsu') return 'Hatsu (Green Dragon)';
+    if (tile.value === 'chun') return 'Chun (Red Dragon)';
+    return tile.value.charAt(0).toUpperCase() + tile.value.slice(1);
+  }
+  const suffix = tile.suit === 'man' ? 'm' : tile.suit === 'pin' ? 'p' : 's';
+  return `${tile.value}${suffix}`;
+}
+
+// ─── Result panel ─────────────────────────────────────────────────────────────
+
+const YAKU_INFO: Record<string, { en: string; desc: string }> = {
+  'riichi':           { en: 'Riichi',                    desc: 'Declare a closed tenpai hand by paying 1000 points. Closed hand only.' },
+  'double-riichi':    { en: 'Double Riichi',             desc: 'Riichi declared on your very first discard before anyone else has drawn. Closed hand only.' },
+  'ippatsu':          { en: 'One Shot',                  desc: 'Win within one full round after declaring Riichi, before any calls are made.' },
+  'tsumo':            { en: 'Self Draw',                 desc: 'Win by drawing your own winning tile. Closed hand only.' },
+  'tanyao':           { en: 'All Simples',               desc: 'All tiles are numbered 2 through 8. No 1s, 9s, or honor tiles allowed.' },
+  'pinfu':            { en: 'All Sequences',             desc: 'All four groups are sequences, the pair is not a scoring honor tile, and the wait is two-sided. Closed hand only. Always 0 fu.' },
+  'iipeiko':          { en: 'Pure Double Sequence',      desc: 'Two identical sequences in the same suit. Closed hand only.' },
+  'ryanpeiko':        { en: 'Twice Pure Double',         desc: 'Two separate pairs of identical sequences. Worth 3 han. Closed hand only.' },
+  'sanshoku-doujun':  { en: 'Three-Color Straight',      desc: 'The same three-tile sequence in all three suits. Worth 1 han open, 2 han closed.' },
+  'sanshoku-doukou':  { en: 'Three-Color Triplet',       desc: 'The same number as a triplet in all three suits.' },
+  'ittsu':            { en: 'Pure Straight',             desc: 'Sequences 1-2-3, 4-5-6, and 7-8-9 all in the same suit. Worth 1 han open, 2 han closed.' },
+  'chanta':           { en: 'Outside Hand',              desc: 'Every group and the pair contain a terminal (1 or 9) or honor tile. Worth 1 han open, 2 han closed.' },
+  'junchan':          { en: 'Terminal in Each Group',    desc: 'Every group and the pair contain a terminal (1 or 9). No honor tiles. Worth 2 han open, 3 han closed.' },
+  'toitoi':           { en: 'All Triplets',              desc: 'All four groups are triplets or quads. No sequences.' },
+  'sanankou':         { en: 'Three Concealed Triplets',  desc: 'Three of your four groups are triplets formed without calling on those specific tiles.' },
+  'sankantsu':        { en: 'Three Quads',               desc: 'Three of your groups are quads.' },
+  'honitsu':          { en: 'Half Flush',                desc: 'All tiles are from one suit, plus honor tiles. Worth 2 han open, 3 han closed.' },
+  'chinitsu':         { en: 'Full Flush',                desc: 'All tiles are from a single suit. No honor tiles. Worth 5 han open, 6 han closed.' },
+  'chiitoitsu':       { en: 'Seven Pairs',               desc: 'Seven unique pairs. No two pairs can be the same tile. Closed hand only. Always 25 fu.' },
+  'rinshan':          { en: 'Dead Wall Draw',            desc: 'Win by drawing the replacement tile after declaring a quad.' },
+  'chankan':          { en: 'Robbing the Quad',          desc: 'Win by taking a tile someone adds to an existing triplet to make a quad.' },
+  'haitei':           { en: 'Last Tile Draw',            desc: 'Win by drawing the very last tile in the wall.' },
+  'houtei':           { en: 'Last Tile Discard',         desc: 'Win by claiming the very last discard of the round.' },
+  'yakuhai':          { en: 'Honor Triplet',             desc: 'A triplet of dragons, or a triplet of the wind matching your seat or the round wind.' },
+  'shousangen':       { en: 'Little Three Dragons',      desc: 'Triplets of two dragon tiles and a pair of the third dragon.' },
+  'kokushi':          { en: 'Thirteen Orphans',          desc: 'One each of every terminal and honor tile, plus one duplicate. Closed hand only.' },
+  'suuankou':         { en: 'Four Concealed Triplets',   desc: 'All four groups are triplets formed without calling. Closed hand only.' },
+  'daisangen':        { en: 'Big Three Dragons',         desc: 'Triplets of all three dragon tiles.' },
+  'shousuushi':       { en: 'Little Four Winds',         desc: 'Triplets of three wind tiles and a pair of the fourth wind.' },
+  'daisuushi':        { en: 'Big Four Winds',            desc: 'Triplets of all four wind tiles.' },
+  'tsuuiisou':        { en: 'All Honors',                desc: 'Every tile is an honor tile. No suited tiles at all.' },
+  'ryuuiisou':        { en: 'All Green',                 desc: 'All tiles are from: 2, 3, 4, 6, 8 of bamboo, and green dragon.' },
+  'chinroutou':       { en: 'All Terminals',             desc: 'Every tile is a 1 or 9. No middle tiles, no honor tiles.' },
+  'chuurenpoutou':    { en: 'Nine Gates',                desc: '1-1-1-2-3-4-5-6-7-8-9-9-9 in one suit, plus any matching tile. Closed hand only.' },
+  'suukantsu':        { en: 'Four Quads',                desc: 'All four groups are quads.' },
+  'tenhou':           { en: 'Heavenly Hand',             desc: 'Dealer wins on their starting hand before the first discard.' },
+  'chiihou':          { en: 'Earthly Hand',              desc: 'Non-dealer wins on their very first draw before anyone has made a call.' },
+  'honroutou':        { en: 'All Terminals & Honors',    desc: 'All tiles are terminals (1 or 9) or honor tiles, with at least one terminal and one honor present.' },
+  // Local yaku
+  'renho':            { en: 'Hand of Man',               desc: 'Non-dealer wins on the first round of discards before their first draw. (Local rule, 5 han)' },
+  'iipinmoyue':       { en: 'One-Pin Moon Reflection',  desc: 'Win by tsumo on the 1-pin tile. (Local rule, 1 han)' },
+  'chuupinraoyui':    { en: 'Nine-Pin Fishing',          desc: 'Win by ron on the 9-pin tile. (Local rule, 1 han)' },
+  'uumensai':         { en: 'Five Gates',                desc: 'Hand contains tiles from all five categories: man, pin, sou, winds, and dragons. (Local rule, 2 han)' },
+  'sanrenkou':        { en: 'Three Consecutive Triplets',desc: 'Three triplets of consecutive values in the same suit, e.g. 4-4-4, 5-5-5, 6-6-6 man. (Local rule, 2 han)' },
+  'suurenkou':        { en: 'Four Consecutive Triplets', desc: 'Four triplets of consecutive values in the same suit. (Local yakuman)' },
+  'daisharin':        { en: 'Big Wheel',                 desc: 'Seven pairs 22334455667788 all in circles (pin). (Local yakuman)' },
+  'daishichi':        { en: 'Big Seven Stars',           desc: 'Seven pairs using all seven different honor tiles. (Local yakuman)' },
+  'iisousanjun':      { en: 'Pure Triple Sequence',      desc: 'The same three-tile sequence three times in one suit. (Local rule, 1 han open / 2 han closed)' },
+};
+
+const HAND_NAME_LABELS: Record<string, string> = {
+  mangan: 'MANGAN',
+  haneman: 'HANEMAN',
+  baiman: 'BAIMAN',
+  sanbaiman: 'SANBAIMAN',
+  yakuman: 'YAKUMAN',
+  'kazoe-yakuman': 'KAZOE YAKUMAN',
+};
+
+function ResultPanel({
+  result,
+  winType,
+  seatWind,
+  honba,
+}: {
+  result: ScoreResult;
+  winType: 'tsumo' | 'ron';
+  seatWind: WindValue;
+  honba: number;
+}) {
+  const [fuOpen, setFuOpen] = useState(false);
+  const [openTooltip, setOpenTooltip] = useState<string | null>(null);
+
+  if (!result.valid) {
+    return (
+      <div className="rounded-sm p-4" style={{ background: C.surface, border: `1px solid rgba(168,50,40,0.4)`, borderLeft: `2px solid ${C.red}` }}>
+        <p className="text-sm font-semibold uppercase tracking-wide" style={{ color: C.redText }}>Invalid hand</p>
+        <p className="text-xs mt-1" style={{ color: C.redText }}>{result.error}</p>
+      </div>
+    );
+  }
+
+  const sortedYaku = [...result.yaku].sort((a, b) => b.han - a.han);
+  const indicatorDora = result.doraCount - result.akaDoraCount + result.uraDoraCount;
+  const totalDora = result.doraCount + result.uraDoraCount;
+  const grandTotal = result.totalHan + totalDora;
+  const isDealer = seatWind === 'east';
+
+  const honbaBonus = honba * 300;
+  const adjustedTotal = result.points.total + honbaBonus;
+
+  // Per-player adjusted amounts for tsumo
+  const tsumoNonDealer = result.points.tsumo?.nonDealerPays ?? 0;
+  const tsumoDealer = result.points.tsumo?.dealerPays ?? 0;
+  const adjNonDealer = tsumoNonDealer + honba * 100;
+  const adjDealer = tsumoDealer + honba * 100;
+
+  // Adjusted ron
+  const adjRon = (result.points.ron ?? 0) + honbaBonus;
+
+  return (
+    <div className="rounded-sm overflow-hidden" style={{ background: C.bg, border: `1px solid ${C.goldBorder}`, borderTop: `2px solid ${C.gold}` }}>
+      {/* Points header */}
+      <div className="px-5 py-5" style={{ background: `linear-gradient(to bottom, rgba(201,162,39,0.08), transparent)`, borderBottom: `1px solid ${C.goldBorderXs}` }}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="leading-none font-bold tabular-nums" style={{ fontSize: '3.5rem', color: C.goldBright, fontVariantNumeric: 'tabular-nums' }}>
+              {adjustedTotal.toLocaleString()}
+            </p>
+            <p className="text-xs mt-1 font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>points</p>
+          </div>
+          {result.handName && (
+            <span
+              className="mt-2 shrink-0 px-2.5 py-1 rounded-sm text-xs font-bold uppercase tracking-widest"
+              style={{ background: C.gold, color: C.bg }}
+            >
+              {HAND_NAME_LABELS[result.handName] ?? result.handName.toUpperCase()}
+            </span>
+          )}
+        </div>
+        {winType === 'tsumo' && result.points.tsumo && (
+          isDealer ? (
+            <p className="text-sm mt-4 font-mono" style={{ color: C.text }}>
+              Each player pays{' '}
+              <span className="font-semibold" style={{ color: C.gold }}>{adjNonDealer.toLocaleString()}</span>
+            </p>
+          ) : (
+            <p className="text-sm mt-4 font-mono" style={{ color: C.text }}>
+              Dealer{' '}
+              <span className="font-semibold" style={{ color: C.gold }}>{adjDealer.toLocaleString()}</span>
+              <span style={{ color: C.textSec }}> · </span>Each non-dealer{' '}
+              <span className="font-semibold" style={{ color: C.gold }}>{adjNonDealer.toLocaleString()}</span>
+            </p>
+          )
+        )}
+        {winType === 'ron' && result.points.ron !== undefined && (
+          <p className="text-sm mt-4 font-mono" style={{ color: C.text }}>
+            Opponent pays{' '}
+            <span className="font-semibold" style={{ color: C.gold }}>{adjRon.toLocaleString()}</span>
+          </p>
+        )}
+        {honba > 0 && (
+          <div className="mt-3 pt-3 space-y-1 font-mono text-xs" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <div className="flex justify-between">
+              <span style={{ color: C.textSec }}>Hand</span>
+              <span style={{ color: C.textSec }}>{result.points.total.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: C.textSec }}>Honba ({honba} × 300)</span>
+              <span style={{ color: C.textSec }}>+{honbaBonus.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between font-semibold pt-1" style={{ borderTop: `1px solid ${C.goldBorderXs}`, color: C.text }}>
+              <span>Total</span>
+              <span>{adjustedTotal.toLocaleString()}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Yaku list */}
+      <div className="px-5 py-2" style={{ borderBottom: `1px solid ${C.goldBorderXs}` }}>
+        {sortedYaku.map((y, i) => {
+          const info = YAKU_INFO[y.name];
+          const isOpen = openTooltip === y.name;
+          return (
+            <div
+              key={i}
+              style={{ borderBottom: i < sortedYaku.length - 1 || totalDora > 0 ? `1px solid ${C.goldBorderXs}` : 'none' }}
+            >
+              <div className="flex items-center justify-between py-2.5 font-mono text-sm gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span style={{ color: C.text }} className="truncate">
+                    {info ? (
+                      <>
+                        <span style={{ color: C.text }}>
+                          {y.name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                        </span>
+                        <span style={{ color: C.textSec }}> · </span>
+                        <span style={{ color: C.text }}>{info.en}</span>
+                      </>
+                    ) : y.name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                  </span>
+                  {info && (
+                    <button
+                      onClick={() => setOpenTooltip(isOpen ? null : y.name)}
+                      className="flex-shrink-0 w-4 h-4 rounded-sm text-xs font-bold flex items-center justify-center transition-colors"
+                      style={{
+                        background: isOpen ? C.goldMuted : 'transparent',
+                        color: isOpen ? C.gold : C.textSec,
+                        border: `1px solid ${isOpen ? C.gold : C.goldBorderSm}`,
+                        lineHeight: 1,
+                      }}
+                    >
+                      ?
+                    </button>
+                  )}
+                </div>
+                <span className="font-semibold flex-shrink-0" style={{ color: C.gold }}>
+                  {y.isYakuman ? 'yakuman' : `${y.han} han`}
+                </span>
+              </div>
+              {isOpen && info && (
+                <div
+                  className="text-xs pb-2.5 leading-relaxed"
+                  style={{ color: C.textSec }}
+                >
+                  {info.desc}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {indicatorDora > 0 && (
+          <div className="flex justify-between py-2.5 font-mono text-sm" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <span style={{ color: C.text }}>Dora{result.uraDoraCount > 0 && ` · ${result.uraDoraCount} ura`}</span>
+            <span className="font-semibold" style={{ color: C.gold }}>{indicatorDora} han</span>
+          </div>
+        )}
+        {result.akaDoraCount > 0 && (
+          <div className="flex justify-between py-2.5 font-mono text-sm" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <span style={{ color: C.text }}>Aka Dora</span>
+            <span className="font-semibold" style={{ color: C.gold }}>{result.akaDoraCount} han</span>
+          </div>
+        )}
+      </div>
+
+      {/* Han + fu summary */}
+      <div className="px-5 py-2.5" style={{ borderBottom: `1px solid ${C.goldBorderXs}` }}>
+        <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>
+          {grandTotal} han &nbsp;/&nbsp; {result.fu} fu
+        </p>
+      </div>
+
+      {/* Fu breakdown */}
+      <div>
+        <button
+          onClick={() => setFuOpen(!fuOpen)}
+          className="w-full flex items-center justify-between px-5 py-3 text-left"
+        >
+          <span className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.gold }}>Fu breakdown</span>
+          <span className="text-xs" style={{ color: C.gold }}>{fuOpen ? '▴' : '▾'}</span>
+        </button>
+        {fuOpen && (
+          <div className="px-5 pb-4 space-y-1">
+            {[
+              { label: 'Base fu', val: result.fuBreakdown.base },
+              { label: 'Meld fu', val: result.fuBreakdown.meldFu },
+              { label: 'Pair fu', val: result.fuBreakdown.pairFu },
+              { label: 'Wait fu', val: result.fuBreakdown.waitFu },
+              { label: 'Tsumo fu', val: result.fuBreakdown.tsumoFu },
+            ].map(({ label, val }) => (
+              <div key={label} className="flex justify-between text-sm font-mono">
+                <span style={{ color: C.textSec }}>{label}</span>
+                <span style={{ color: C.text }}>{val}</span>
+              </div>
+            ))}
+            <div
+              className="flex justify-between text-sm font-mono font-semibold pt-2 mt-1"
+              style={{ borderTop: `1px solid ${C.goldBorderXs}`, color: C.text }}
+            >
+              <span>Total → rounded</span>
+              <span>{result.fuBreakdown.total}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function Home() {
+  // ── Camera / tile state ───────────────────────────────────────────────────
+  const [handTiles, setHandTiles] = useState<Tile[]>([]);
+  const [winningTile, setWinningTile] = useState<Tile | null>(null);
+  const [doraIndicatorTiles, setDoraIndicatorTiles] = useState<Tile[]>([]);
+  const [melds, setMelds] = useState<Meld[]>([]);
+  const [isDetectingHand, setIsDetectingHand] = useState(false);
+  const [isDetectingDora, setIsDetectingDora] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [handScanned, setHandScanned] = useState(false);
+  const [doraScanned, setDoraScanned] = useState(false);
+  const [handImageUrl, setHandImageUrl] = useState<string | null>(null);
+  const [doraImageUrl, setDoraImageUrl] = useState<string | null>(null);
+  const [handForceRevision, setHandForceRevision] = useState(0);
+  const [doraPaletteForced, setDoraPaletteForced] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [guidedOpen, setGuidedOpen] = useState(false);
+  const [meldBuilderActive, setMeldBuilderActive] = useState(false);
+  const [meldExternalSelect, setMeldExternalSelect] = useState<number | null>(null);
+
+  // ── Win type ──────────────────────────────────────────────────────────────
+  const [winType, setWinType] = useState<'tsumo' | 'ron'>('tsumo');
+
+  // ── Honba ─────────────────────────────────────────────────────────────────
+  const [honba, setHonba] = useState(0);
+  const [honbaInfoOpen, setHonbaInfoOpen] = useState(false);
+
+  // ── Dealer / seat wind (synced) ───────────────────────────────────────────
+  const [dealer, setDealer] = useState(false);
+  const [seatWind, setSeatWind] = useState<WindValue>('south');
+
+  // ── Round wind ────────────────────────────────────────────────────────────
+  const [roundWind, setRoundWind] = useState<WindValue>('east');
+
+  // ── Riichi flags ──────────────────────────────────────────────────────────
+  const [riichi, setRiichi] = useState(false);
+  const [doubleRiichi, setDoubleRiichi] = useState(false);
+  const [ippatsu, setIppatsu] = useState(false);
+
+  // ── Special conditions ────────────────────────────────────────────────────
+  const [haitei, setHaitei] = useState(false);
+  const [houtei, setHoutei] = useState(false);
+  const [rinshan, setRinshan] = useState(false);
+  const [chankan, setChankan] = useState(false);
+  const [renho, setRenho] = useState(false);
+
+  // ── Local yaku config ─────────────────────────────────────────────────────
+  const [localYakuConfig, setLocalYakuConfig] = useState<LocalYakuConfig>(() => {
+    if (typeof window === 'undefined') return DEFAULT_LOCAL_YAKU;
+    try {
+      const stored = localStorage.getItem('localYakuConfig');
+      if (stored) return { ...DEFAULT_LOCAL_YAKU, ...JSON.parse(stored) };
+    } catch { /* ignore */ }
+    return DEFAULT_LOCAL_YAKU;
+  });
+
+  function setLocalYaku(key: keyof LocalYakuConfig, val: boolean) {
+    setLocalYakuConfig((prev) => {
+      const next = { ...prev, [key]: val };
+      localStorage.setItem('localYakuConfig', JSON.stringify(next));
+      return next;
+    });
+  }
+
+  // ── Result ────────────────────────────────────────────────────────────────
+  const [result, setResult] = useState<ScoreResult | null>(null);
+
+  // ── Training data consent ─────────────────────────────────────────────────
+  const sessionId = useRef(crypto.randomUUID());
+  const [trainingConsent, setTrainingConsent] = useState<'granted' | 'denied' | null>(null);
+  const [showConsentBanner, setShowConsentBanner] = useState(false);
+
+  type PendingImage = { base64: string; mode: string; predictions: unknown[]; imageWidth?: number; imageHeight?: number; timestamp: string };
+  const pendingImages = useRef<PendingImage[]>([]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('trainingConsent');
+    if (stored === 'granted' || stored === 'denied') {
+      setTrainingConsent(stored);
+    }
+  }, []);
+
+  function flushPendingImages() {
+    const toFlush = [...pendingImages.current];
+    pendingImages.current = [];
+    for (const img of toFlush) {
+      fetch('/api/save-training', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: img.base64,
+          meta: { timestamp: img.timestamp, mode: img.mode, sessionId: sessionId.current, predictions: img.predictions, imageWidth: img.imageWidth, imageHeight: img.imageHeight },
+        }),
+      }).catch(() => {});
+    }
+  }
+
+  function handleConsentAccept() {
+    localStorage.setItem('trainingConsent', 'granted');
+    setTrainingConsent('granted');
+    setShowConsentBanner(false);
+    flushPendingImages();
+  }
+
+  function handleConsentDecline() {
+    localStorage.setItem('trainingConsent', 'denied');
+    setTrainingConsent('denied');
+    setShowConsentBanner(false);
+    pendingImages.current = [];
+  }
+
+  function maybeShowConsentBanner() {
+    if (trainingConsent === null) setShowConsentBanner(true);
+  }
+
+  // ── Sync helpers ──────────────────────────────────────────────────────────
+  function handleDealer(on: boolean) {
+    setDealer(on);
+    setSeatWind(on ? 'east' : 'south');
+  }
+
+  function handleSeatWind(w: WindValue) {
+    setSeatWind(w);
+    setDealer(w === 'east');
+  }
+
+  function handleDoubleRiichi(on: boolean) {
+    setDoubleRiichi(on);
+    if (on) setRiichi(true);
+  }
+
+  function handleWinType(wt: 'tsumo' | 'ron') {
+    setWinType(wt);
+    if (wt === 'ron') {
+      setHaitei(false);
+      setRinshan(false);
+    } else {
+      setHoutei(false);
+      setChankan(false);
+    }
+  }
+
+  // ── Detection handlers ────────────────────────────────────────────────────
+  function handleClearHand() {
+    setHandTiles([]);
+    setWinningTile(null);
+    setMelds([]);
+    setDoraIndicatorTiles([]);
+    setResult(null);
+    setHandScanned(false);
+    setDoraScanned(false);
+    setHandImageUrl(null);
+    setDoraImageUrl(null);
+    setHandForceRevision(0);
+    setDoraPaletteForced(false);
+    setDetectError(null);
+  }
+
+  function handleClear() {
+    setHandTiles([]);
+    setWinningTile(null);
+    setDoraIndicatorTiles([]);
+    setMelds([]);
+    setResult(null);
+    setHandScanned(false);
+    setDoraScanned(false);
+    setHandImageUrl(null);
+    setDoraImageUrl(null);
+    setDetectError(null);
+    setHandForceRevision(0);
+    setDoraPaletteForced(false);
+    setLightboxUrl(null);
+    setHonba(0);
+  }
+
+  async function handleHandCapture(base64: string) {
+    maybeShowConsentBanner();
+    setIsDetectingHand(true);
+    setDetectError(null);
+    setHandScanned(true);
+    setHandForceRevision((r) => r + 1);
+    setHandImageUrl(`data:image/jpeg;base64,${base64}`);
+    setResult(null);
+    try {
+      const res = await fetch('/api/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mode: 'hand', save: trainingConsent === 'granted', sessionId: sessionId.current, returnRawPredictions: trainingConsent === null }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setDetectError(data.error);
+        return;
+      }
+      const tiles: Tile[] = data.tiles;
+      setHandTiles(sortTiles(tiles.slice(0, 13)));
+      if (tiles.length >= 14) setWinningTile(tiles[13]);
+      if (trainingConsent === null && data.rawPredictions) {
+        pendingImages.current.push({ base64, mode: 'hand', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
+      }
+    } catch {
+      setDetectError('Detection failed. Check your connection and try again.');
+    } finally {
+      setIsDetectingHand(false);
+    }
+  }
+
+  async function handleDoraCapture(base64: string) {
+    maybeShowConsentBanner();
+    setIsDetectingDora(true);
+    setDetectError(null);
+    setDoraScanned(true);
+    setDoraPaletteForced(true);
+    setDoraImageUrl(`data:image/jpeg;base64,${base64}`);
+    try {
+      const res = await fetch('/api/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mode: 'dora', save: trainingConsent === 'granted', sessionId: sessionId.current, returnRawPredictions: trainingConsent === null }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setDetectError(data.error);
+        return;
+      }
+      setDoraIndicatorTiles(sortTiles(data.tiles.slice(0, 8)));
+      if (trainingConsent === null && data.rawPredictions) {
+        pendingImages.current.push({ base64, mode: 'dora', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
+      }
+    } catch {
+      setDetectError('Detection failed. Check your connection and try again.');
+    } finally {
+      setIsDetectingDora(false);
+    }
+  }
+
+  async function handleGuidedCapture(data: GuidedScanData) {
+    maybeShowConsentBanner();
+    setGuidedOpen(false);
+    if (!data.fullImage || Object.keys(data.sections).length === 0) return;
+
+    setDetectError(null);
+    setResult(null);
+
+    if (data.sections.hand) {
+      setIsDetectingHand(true);
+      setHandScanned(true);
+      setHandForceRevision((r) => r + 1);
+      // Show the full frame as the scan preview
+      setHandImageUrl(`data:image/jpeg;base64,${data.fullImage}`);
+    }
+    if (data.sections.dora) {
+      setIsDetectingDora(true);
+      setDoraScanned(true);
+      setDoraPaletteForced(true);
+    }
+
+    try {
+      const res = await fetch('/api/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image: data.fullImage,
+          mode: 'guided',
+          sections: data.sections,
+          isLandscape: data.isLandscape,
+          save: trainingConsent === 'granted',
+          sessionId: sessionId.current,
+          returnRawPredictions: trainingConsent === null,
+        }),
+      });
+      const result = await res.json();
+
+      if (result.error) {
+        setDetectError(result.error);
+        return;
+      }
+
+      if (result.hand?.length > 0) setHandTiles(sortTiles((result.hand as Tile[]).slice(0, 13)));
+      if (result.winningTile) setWinningTile(result.winningTile as Tile);
+      if (result.dora?.length > 0) setDoraIndicatorTiles(sortTiles((result.dora as Tile[]).slice(0, 8)));
+      if (result.melds?.length > 0) setMelds(result.melds);
+      if (trainingConsent === null && result.rawPredictions) {
+        pendingImages.current.push({ base64: data.fullImage, mode: 'guided', predictions: result.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
+      }
+    } catch {
+      setDetectError('Detection failed. Check your connection and try again.');
+    } finally {
+      setIsDetectingHand(false);
+      setIsDetectingDora(false);
+    }
+  }
+
+  // ── Build hand for scoring ────────────────────────────────────────────────
+  function buildHand(): Hand | null {
+    const meldTileCount = melds.reduce((s, m) => s + m.tiles.length, 0);
+    const numKans = melds.filter((m) => m.type.startsWith('kan')).length;
+    if (handTiles.length + meldTileCount !== 13 + numKans || !winningTile) return null;
+    return {
+      closedTiles: handTiles,
+      winningTile,
+      melds,
+      doraIndicators: doraIndicatorTiles,
+      winType,
+      seatWind,
+      roundWind,
+      riichi: riichi || doubleRiichi,
+      doubleRiichi,
+      ippatsu: (riichi || doubleRiichi) && ippatsu,
+      haitei: winType === 'tsumo' && haitei,
+      houtei: winType === 'ron' && houtei,
+      rinshan: winType === 'tsumo' && rinshan,
+      chankan: winType === 'ron' && chankan,
+      renho: renho && seatWind !== 'east',
+      uraDoraIndicators: undefined,
+    };
+  }
+
+  function handleScore() {
+    const hand = buildHand();
+    if (!hand) return;
+    setResult(score(hand, { localYaku: localYakuConfig }));
+  }
+
+  function handleMeldsChange(newMelds: Meld[]) {
+    if (newMelds.length > melds.length) setHandForceRevision((r) => r + 1);
+    setMelds(newMelds);
+  }
+
+  const meldTileCount = melds.reduce((s, m) => s + m.tiles.length, 0);
+  const numKans = melds.filter((m) => m.type.startsWith('kan')).length;
+
+  const tenpaiWaits = useMemo<Tile[]>(() => {
+    const meldCount = melds.reduce((s, m) => s + m.tiles.length, 0);
+    const kansCount = melds.filter((m) => m.type.startsWith('kan')).length;
+    if (handTiles.length + meldCount !== 13 + kansCount) return [];
+    return ALL_TILES.filter(candidate => {
+      try {
+        const result = score({
+          closedTiles: handTiles,
+          melds,
+          winningTile: candidate,
+          winType,
+          seatWind,
+          roundWind,
+          doraIndicators: doraIndicatorTiles,
+          riichi,
+          doubleRiichi,
+          ippatsu,
+          haitei,
+          houtei,
+          rinshan,
+          chankan,
+        });
+        return result.valid;
+      } catch {
+        return false;
+      }
+    });
+  }, [handTiles, melds, winType, seatWind, roundWind, doraIndicatorTiles, riichi, doubleRiichi, ippatsu, haitei, houtei, rinshan, chankan]);
+
+  const canScore = handTiles.length + meldTileCount === 13 + numKans && winningTile !== null;
+  const winningTileValid = !winningTile || tenpaiWaits.some(w => tileMatchesValue(w, winningTile));
+  const usedTiles: Tile[] = [
+    ...handTiles,
+    ...(winningTile ? [winningTile] : []),
+    ...melds.flatMap((m) => [...m.tiles]),
+  ];
+  const isRiichi = riichi || doubleRiichi;
+
+  // Count aka-5 tiles already in hand+melds (excluding winning tile, since we're selecting it)
+  function akaInHandMelds(suit: 'man' | 'pin' | 'sou'): number {
+    return [...handTiles, ...melds.flatMap((m) => [...m.tiles])].filter(
+      (t) => t.suit === suit && t.value === 5 && !!(t as { isAka?: boolean }).isAka
+    ).length;
+  }
+  const showHandRows = handScanned || handTiles.length > 0 || winningTile !== null || melds.length > 0;
+  const showDoraRow = doraScanned || doraIndicatorTiles.length > 0;
+
+  return (
+    <main style={{ minHeight: '100vh', background: C.bg }}>
+      <div className="max-w-md mx-auto px-4 py-8 space-y-3">
+
+        {/* ── Header ───────────────────────────────────────────────────── */}
+        <div style={{ background: C.surface, borderBottom: `1px solid ${C.goldBorder}` }} className="rounded-sm overflow-hidden -mx-4 px-4 py-4 mb-2">
+          <div className="flex items-center gap-4">
+            <div
+              className="flex-shrink-0 flex items-center justify-center rounded-sm"
+              style={{ width: 44, height: 44, background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}` }}
+            >
+              <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="3" width="24" height="26" rx="2" fill={C.surfaceEl} stroke={C.gold} strokeWidth="1.5"/>
+                <text x="16" y="22" textAnchor="middle" fontSize="15" fontWeight="700" fill={C.gold} fontFamily="serif">中</text>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold tracking-[0.12em] uppercase leading-tight" style={{ color: C.gold }}>RiichiCam</h1>
+              <p className="text-xs mt-0.5 tracking-widest uppercase" style={{ color: C.textSec }}>Riichi mahjong scorer</p>
+              <p className="text-xs mt-1 leading-relaxed" style={{ color: C.textSec, opacity: 0.6 }}>Scan tiles with your camera or input manually to calculate yaku, fu, han, and payments.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Hand scan ─────────────────────────────────────────────────── */}
+        <section
+          className="rounded-sm p-4 space-y-4"
+          style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Hand</p>
+            {showHandRows && (
+              <button
+                onClick={handleClearHand}
+                className="text-xs font-semibold tracking-widest uppercase px-2 py-1 rounded-sm transition-colors"
+                style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.redText; e.currentTarget.style.color = C.redText; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <CameraCapture
+            label="Scan Hand"
+            onCapture={handleHandCapture}
+            isLoading={isDetectingHand}
+            onStartGuided={() => setGuidedOpen(true)}
+          />
+          {handImageUrl && (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={handImageUrl}
+                alt="Scanned hand"
+                onClick={() => setLightboxUrl(handImageUrl)}
+                className="rounded-sm object-cover flex-shrink-0 cursor-pointer"
+                style={{ height: 64, width: 'auto', maxWidth: 120, border: `1px solid ${C.goldBorderSm}` }}
+                title="Tap to enlarge"
+              />
+              <p className="text-xs" style={{ color: C.textSec }}>Tap preview to enlarge · correct misdetections below.</p>
+            </div>
+          )}
+          {showHandRows ? (
+            <div className="space-y-4">
+              <TileRow
+                label="Hand tiles"
+                tiles={handTiles}
+                onChange={(tiles) => setHandTiles(sortTiles(tiles))}
+                maxTiles={13 + numKans - meldTileCount}
+                minTiles={13 + numKans - meldTileCount}
+                usedTiles={usedTiles}
+                forceOpen={showHandRows && handTiles.length + meldTileCount < 13 + numKans}
+                forceOpenRevision={handForceRevision}
+                readOnly={meldBuilderActive}
+                onTileClick={meldBuilderActive ? (i) => setMeldExternalSelect(i) : undefined}
+              />
+
+              {(handScanned || handTiles.length > 0) && (
+                <MeldBuilder
+                  handTiles={handTiles}
+                  melds={melds}
+                  onHandTilesChange={setHandTiles}
+                  onMeldsChange={handleMeldsChange}
+                  onActiveChange={setMeldBuilderActive}
+                  externalSelectIdx={meldExternalSelect}
+                  onExternalSelectConsumed={() => setMeldExternalSelect(null)}
+                />
+              )}
+
+              {handTiles.length + meldTileCount === 13 + numKans && (
+                <div
+                  className="-mx-4 px-4 pb-4 pt-4"
+                  style={{ background: C.surfaceEl, borderTop: `1px solid ${C.goldBorderXs}` }}
+                >
+                  {tenpaiWaits.length === 0 ? (
+                    <div style={{ border: `1px solid ${C.goldBorderSm}`, borderRadius: 2, padding: '10px 14px' }}>
+                      <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: C.textSec }}>
+                        Winning Tile
+                      </p>
+                      {winningTile && (
+                        <div className="flex items-center gap-2 mb-2">
+                          <TileGraphic tile={winningTile} size="normal" />
+                          <span className="text-xs" style={{ color: C.textSec }}>{tileLabel(winningTile)} · remembered</span>
+                        </div>
+                      )}
+                      <p className="text-xs" style={{ color: C.red }}>
+                        Hand is not in tenpai. Remove and re-add tiles to fix misdetections.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-xs font-semibold tracking-widest uppercase mb-3" style={{ color: C.textSec }}>
+                        Winning Tile
+                      </p>
+                      {winningTile && (
+                        <div className="mb-3 flex items-center gap-2">
+                          <TileGraphic tile={winningTile} size="normal" />
+                          <span className="text-xs" style={{ color: C.textSec }}>{tileLabel(winningTile)}</span>
+                        </div>
+                      )}
+                      {winningTile && !winningTileValid && (
+                        <div className="mb-3 px-3 py-2 rounded-sm" style={{ background: 'rgba(201,162,39,0.08)', border: `1px solid ${C.goldBorder}` }}>
+                          <p className="text-xs" style={{ color: C.gold }}>
+                            ⚠ {tileLabel(winningTile)} is not a valid wait for this hand. Select a different winning tile or fix any misdetections.
+                          </p>
+                        </div>
+                      )}
+                      <div className="rounded-sm p-3 space-y-3" style={{ background: C.bg, border: `1px solid ${C.goldBorderSm}` }}>
+                        {WINNING_PALETTE_ROWS.map(({ label: rowLabel, tiles: rowTiles }) => (
+                          <div key={rowLabel}>
+                            <p className="text-xs font-semibold tracking-widest uppercase mb-1.5" style={{ color: C.textSec }}>{rowLabel}</p>
+                            <div className="flex flex-wrap gap-1">
+                              {rowTiles.map((tile, i) => {
+                                const isWait = tenpaiWaits.some(w => tileMatchesValue(w, tile));
+                                const isSelected = winningTile !== null && tileMatchesExact(winningTile, tile);
+                                const isAka5 = tile.suit !== 'honor' && !!tile.isAka;
+                                const akaMax = isAka5 ? (tile.suit === 'pin' ? 2 : 1) : 4;
+                                const akaExhausted = isAka5 && akaInHandMelds(tile.suit as 'man' | 'pin' | 'sou') >= akaMax && !isSelected;
+                                return (
+                                  <button
+                                    key={i}
+                                    onClick={() => !akaExhausted && setWinningTile(tile)}
+                                    disabled={akaExhausted}
+                                    aria-label={tileLabel(tile)}
+                                    title={tileLabel(tile)}
+                                    className="px-1.5 py-1 rounded text-sm font-medium transition-all"
+                                    style={{
+                                      background: isSelected ? 'rgba(201,162,39,0.2)' : C.surfaceEl,
+                                      border: `1px solid ${isSelected || isWait ? C.gold : C.goldBorderSm}`,
+                                      opacity: akaExhausted ? 0.15 : isSelected || isWait ? 1 : 0.3,
+                                      transform: isSelected ? 'scale(1.15)' : undefined,
+                                      cursor: akaExhausted ? 'not-allowed' : undefined,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (isWait && !isSelected && !akaExhausted) e.currentTarget.style.boxShadow = `0 0 6px ${C.gold}`;
+                                    }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+                                  >
+                                    <TileGraphic tile={tile} size="small" />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-center" style={{ color: C.textSec }}>
+                Tap &lsquo;Scan Hand&rsquo; to detect tiles automatically
+              </p>
+              <button
+                onClick={() => { setHandScanned(true); setHandForceRevision((r) => r + 1); }}
+                className="w-full py-2.5 rounded-sm text-sm font-medium tracking-wide transition-colors"
+                style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+              >
+                Input Manually
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* ── Dora scan ─────────────────────────────────────────────────── */}
+        <section
+          className="rounded-sm p-4 space-y-4"
+          style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}
+        >
+          <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Dora / Ura Dora</p>
+          <CameraCapture
+            label="Scan Dora / Ura Dora"
+            onCapture={handleDoraCapture}
+            isLoading={isDetectingDora}
+          />
+          {doraImageUrl && (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={doraImageUrl}
+                alt="Scanned dora"
+                onClick={() => setLightboxUrl(doraImageUrl)}
+                className="rounded-sm object-cover flex-shrink-0 cursor-pointer"
+                style={{ height: 64, width: 'auto', maxWidth: 120, border: `1px solid ${C.goldBorderSm}` }}
+                title="Tap to enlarge"
+              />
+              <p className="text-xs" style={{ color: C.textSec }}>Tap preview to enlarge · correct misdetections below.</p>
+            </div>
+          )}
+          {showDoraRow ? (
+            <TileRow
+              label="Dora indicators"
+              tiles={doraIndicatorTiles}
+              onChange={setDoraIndicatorTiles}
+              maxTiles={8}
+              usedTiles={[...usedTiles, ...doraIndicatorTiles]}
+              forceOpen={doraPaletteForced}
+              onForceClose={() => setDoraPaletteForced(false)}
+            />
+          ) : (
+            <button
+              onClick={() => { setDoraScanned(true); setDoraPaletteForced(true); }}
+              className="w-full py-2 rounded-sm text-xs font-medium tracking-wide transition-colors"
+              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+            >
+              Input Manually
+            </button>
+          )}
+        </section>
+
+        {/* ── Detection error ──────────────────────────────────────────── */}
+        {detectError && (
+          <p className="text-sm font-medium px-1" style={{ color: C.redText }}>{detectError}</p>
+        )}
+
+        {/* ── Conditions ────────────────────────────────────────────────── */}
+        <section
+          className="rounded-sm px-4"
+          style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}
+        >
+          {/* Win type */}
+          <div className="py-3">
+            <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: C.textSec }}>Win type</p>
+            <div
+              className="flex rounded-sm overflow-hidden"
+              style={{ border: `1px solid ${C.goldBorderSm}`, background: C.surfaceEl }}
+            >
+              {(['tsumo', 'ron'] as const).map((wt) => (
+                <button
+                  key={wt}
+                  onClick={() => handleWinType(wt)}
+                  className="flex-1 py-3 text-sm font-semibold tracking-widest uppercase transition-colors"
+                  style={
+                    winType === wt
+                      ? { background: C.gold, color: C.bg }
+                      : { background: 'transparent', color: C.textSec }
+                  }
+                >
+                  {wt === 'tsumo' ? 'Tsumo' : 'Ron'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Honba */}
+          <div style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <div className="py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium" style={{ color: C.text }}>Honba</span>
+                  <button
+                    onClick={() => setHonbaInfoOpen(!honbaInfoOpen)}
+                    className="w-4 h-4 rounded-sm text-xs font-bold flex items-center justify-center transition-colors"
+                    style={{
+                      background: honbaInfoOpen ? C.goldMuted : 'transparent',
+                      color: honbaInfoOpen ? C.gold : C.textSec,
+                      border: `1px solid ${honbaInfoOpen ? C.gold : C.goldBorderSm}`,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ?
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setHonba(Math.max(0, honba - 1))}
+                    disabled={honba <= 0}
+                    className="w-8 h-8 text-lg font-medium flex items-center justify-center rounded-sm disabled:opacity-40 transition-colors"
+                    style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${C.goldBorderSm}` }}
+                  >
+                    −
+                  </button>
+                  <span className="w-5 text-center text-base font-semibold tabular-nums" style={{ color: C.text }}>{honba}</span>
+                  <button
+                    onClick={() => setHonba(Math.min(8, honba + 1))}
+                    disabled={honba >= 8}
+                    className="w-8 h-8 text-lg font-medium flex items-center justify-center rounded-sm disabled:opacity-40 transition-colors"
+                    style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${C.goldBorderSm}` }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              {honbaInfoOpen && (
+                <p className="text-xs mt-1.5 pr-4 leading-relaxed" style={{ color: C.textSec }}>
+                  Each honba stick on the table adds 300 pts to the total win (100 pts from each player for tsumo, 300 pts from the discarder for ron).
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Dealer */}
+          <div style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <Toggle
+              label="I am dealer (East seat)"
+              value={dealer}
+              onChange={handleDealer}
+            />
+          </div>
+
+          {/* Riichi */}
+          <div style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+            <Toggle
+              label="Riichi"
+              sub="Declare before winning with a closed hand."
+              value={riichi}
+              onChange={(v) => {
+                setRiichi(v);
+                if (!v) {
+                  setDoubleRiichi(false);
+                  setIppatsu(false);
+                }
+              }}
+            />
+          </div>
+
+          {/* Riichi sub-options */}
+          {isRiichi && (
+            <>
+              <div className="pl-4 ml-0.5" style={{ borderLeft: `2px solid ${C.gold}`, borderTop: `1px solid ${C.goldBorderXs}` }}>
+                <Toggle
+                  label="Ippatsu"
+                  sub="Won within one round of discards after riichi."
+                  value={ippatsu}
+                  onChange={setIppatsu}
+                />
+              </div>
+              <div className="pl-4 ml-0.5" style={{ borderLeft: `2px solid ${C.gold}`, borderTop: `1px solid ${C.goldBorderXs}` }}>
+                <Toggle
+                  label="Double Riichi"
+                  sub="Declared riichi on your very first discard."
+                  value={doubleRiichi}
+                  onChange={handleDoubleRiichi}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Round & dora */}
+          <Disclosure label="Round & dora" defaultOpen>
+            <Segmented
+              label="Round wind"
+              options={[
+                { label: 'East', value: 'east' as WindValue },
+                { label: 'South', value: 'south' as WindValue },
+              ]}
+              value={roundWind}
+              onChange={setRoundWind}
+            />
+            <Segmented
+              label="Seat wind"
+              options={[
+                { label: 'East', value: 'east' as WindValue },
+                { label: 'South', value: 'south' as WindValue },
+                { label: 'West', value: 'west' as WindValue },
+                { label: 'North', value: 'north' as WindValue },
+              ]}
+              value={seatWind}
+              onChange={handleSeatWind}
+            />
+          </Disclosure>
+
+          {/* Special conditions */}
+          <Disclosure label="Special conditions">
+            <Toggle
+              label="Haitei"
+              sub="Won on the very last drawable tile. (Tsumo only)"
+              value={haitei}
+              onChange={setHaitei}
+              disabled={winType !== 'tsumo'}
+            />
+            <Toggle
+              label="Houtei"
+              sub="Won on the very last discard. (Ron only)"
+              value={houtei}
+              onChange={setHoutei}
+              disabled={winType !== 'ron'}
+            />
+            <Toggle
+              label="Rinshan"
+              sub="Drew the winning tile after declaring a kan. (Tsumo only)"
+              value={rinshan}
+              onChange={setRinshan}
+              disabled={winType !== 'tsumo'}
+            />
+            <Toggle
+              label="Chankan"
+              sub="Won by stealing a tile added to an opponent's pon. (Ron only)"
+              value={chankan}
+              onChange={setChankan}
+              disabled={winType !== 'ron'}
+            />
+            <Toggle
+              label="Renho (Hand of Man)"
+              sub="Non-dealer wins on the first round of discards before drawing. Only counts if Local Yaku → Renho is enabled."
+              value={renho}
+              onChange={setRenho}
+              disabled={seatWind === 'east' || !localYakuConfig.renho}
+            />
+          </Disclosure>
+
+          {/* Local yaku */}
+          <Disclosure label="Local yaku">
+            <p className="text-xs pb-2" style={{ color: C.textSec }}>
+              House rules not used in standard play. Enable only if your game uses them.
+            </p>
+            <Toggle
+              label="Renho · 人和"
+              sub="Non-dealer wins on first-round discard before drawing (5 han)."
+              value={localYakuConfig.renho}
+              onChange={(v) => setLocalYaku('renho', v)}
+            />
+            <Toggle
+              label="Iipinmoyue · 一筒摸月"
+              sub="Win by tsumo on 1-pin (1 han)."
+              value={localYakuConfig.iipinmoyue}
+              onChange={(v) => setLocalYaku('iipinmoyue', v)}
+            />
+            <Toggle
+              label="Chuupinraoyui · 九筒撈魚"
+              sub="Win by ron on 9-pin (1 han)."
+              value={localYakuConfig.chuupinraoyui}
+              onChange={(v) => setLocalYaku('chuupinraoyui', v)}
+            />
+            <Toggle
+              label="Uumensai · 五門斉"
+              sub="Hand contains all five tile categories: man, pin, sou, winds, dragons (2 han)."
+              value={localYakuConfig.uumensai}
+              onChange={(v) => setLocalYaku('uumensai', v)}
+            />
+            <Toggle
+              label="Sanrenkou · 三連刻"
+              sub="Three triplets of consecutive values in the same suit, e.g. 4-4-4 5-5-5 6-6-6 (2 han)."
+              value={localYakuConfig.sanrenkou}
+              onChange={(v) => setLocalYaku('sanrenkou', v)}
+            />
+            <Toggle
+              label="Iisousanjun · 一色三順"
+              sub="Same three-tile sequence three times in one suit (1 han open / 2 han closed)."
+              value={localYakuConfig.iisousanjun}
+              onChange={(v) => setLocalYaku('iisousanjun', v)}
+            />
+            <p className="text-xs pt-2 pb-1 font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Yakuman</p>
+            <Toggle
+              label="Daisharin · 大車輪"
+              sub="Seven pairs 22334455667788 all in circles (pin)."
+              value={localYakuConfig.daisharin}
+              onChange={(v) => setLocalYaku('daisharin', v)}
+            />
+            <Toggle
+              label="Daishichi · 大七星"
+              sub="Seven pairs using all seven different honor tiles."
+              value={localYakuConfig.daishichi}
+              onChange={(v) => setLocalYaku('daishichi', v)}
+            />
+            <Toggle
+              label="Suurenkou · 四連刻"
+              sub="Four triplets of consecutive values in the same suit."
+              value={localYakuConfig.suurenkou}
+              onChange={(v) => setLocalYaku('suurenkou', v)}
+            />
+          </Disclosure>
+        </section>
+
+        {/* ── Score button ──────────────────────────────────────────────── */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleScore}
+            disabled={!canScore}
+            className="flex-1 py-4 rounded-sm text-sm font-bold tracking-widest uppercase transition-colors shadow-none"
+            style={{
+              background: canScore ? C.gold : C.surfaceEl,
+              color: canScore ? C.bg : C.textDim,
+              border: canScore ? 'none' : `1px solid ${C.goldBorderSm}`,
+            }}
+            onMouseEnter={(e) => { if (canScore) e.currentTarget.style.background = C.goldBright; }}
+            onMouseLeave={(e) => { if (canScore) e.currentTarget.style.background = C.gold; }}
+          >
+            Score Hand
+          </button>
+          {(handScanned || handTiles.length > 0 || result) && (
+            <button
+              onClick={handleClear}
+              className="px-4 py-4 rounded-sm text-sm font-semibold tracking-widest uppercase transition-colors"
+              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.redText; e.currentTarget.style.color = C.redText; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* ── Result ───────────────────────────────────────────────────── */}
+        {result && <ResultPanel result={result} winType={winType} seatWind={seatWind} honba={honba} />}
+
+        {/* ── Footer ───────────────────────────────────────────────────── */}
+        <footer className="pt-6 pb-8 space-y-3 text-center">
+          {/* Row 1: Give Feedback + Buy Me a Coffee */}
+          <div className="flex justify-center gap-2">
+            <a
+              href="mailto:support.riichicam@gmail.com?subject=RiichiCam Feedback"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-sm text-xs font-semibold tracking-wide transition-colors"
+              style={{ border: `1px solid ${C.goldBorderSm}`, color: C.textSec, background: 'transparent', textDecoration: 'none', maxWidth: 160 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.gold; (e.currentTarget as HTMLAnchorElement).style.color = C.gold; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.borderColor = C.goldBorderSm; (e.currentTarget as HTMLAnchorElement).style.color = C.textSec; }}
+            >
+              Give Feedback
+            </a>
+            <a
+              href="https://buymeacoffee.com/RiichiCam"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bmc-btn flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-sm text-xs font-semibold tracking-wide"
+              style={{ background: C.gold, color: C.bg, textDecoration: 'none', maxWidth: 160, border: 'none' }}
+            >
+              ☕ Buy Me a Coffee
+            </a>
+            <style>{`.bmc-btn:hover { background: ${C.goldBright} !important; }`}</style>
+          </div>
+
+          {/* Row 2: Training image contribution toggle */}
+          {trainingConsent !== null && (
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <span className="text-xs" style={{ color: C.textSec }}>Contribute scan images for training</span>
+              <button
+                onClick={() => {
+                  const next = trainingConsent === 'granted' ? 'denied' : 'granted';
+                  localStorage.setItem('trainingConsent', next);
+                  setTrainingConsent(next);
+                }}
+                aria-pressed={trainingConsent === 'granted'}
+                className="flex-shrink-0 px-2.5 py-0.5 text-xs font-semibold tracking-widest uppercase rounded-sm transition-colors"
+                style={
+                  trainingConsent === 'granted'
+                    ? { background: 'rgba(201,162,39,0.15)', color: C.gold, border: `1px solid ${C.gold}` }
+                    : { background: 'transparent', color: C.textSec, border: `1px solid rgba(201,162,39,0.15)` }
+                }
+              >
+                {trainingConsent === 'granted' ? 'ON' : 'OFF'}
+              </button>
+            </div>
+          )}
+
+          {/* Row 3: GitHub link + Made by */}
+          <div className="flex items-center justify-between gap-3">
+            <a
+              href="https://github.com/MMitch42/RiichiCam"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-xs transition-colors"
+              style={{ color: C.textSec, textDecoration: 'none' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = C.gold; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = C.textSec; }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
+              </svg>
+              View on GitHub
+            </a>
+            <p className="text-xs" style={{ color: C.textSec }}>Made by Mitchell Magid</p>
+          </div>
+        </footer>
+      </div>
+
+      {/* ── PWA install banner ──────────────────────────────────────────── */}
+      <PWAInstallBanner />
+
+      {/* ── Training consent banner ─────────────────────────────────────── */}
+      {showConsentBanner && (
+        <TrainingConsentBanner
+          onAccept={handleConsentAccept}
+          onDecline={handleConsentDecline}
+        />
+      )}
+
+      {/* ── Guided capture overlay ───────────────────────────────────────── */}
+      {guidedOpen && (
+        <GuidedCapture
+          onCapture={handleGuidedCapture}
+          onClose={() => setGuidedOpen(false)}
+        />
+      )}
+
+      {/* ── Lightbox ─────────────────────────────────────────────────────── */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(8,12,18,0.92)' }}
+          onClick={() => setLightboxUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="Scan preview"
+            className="rounded-sm max-w-full max-h-full object-contain"
+            style={{ border: `1px solid ${C.goldBorderSm}`, maxHeight: '80vh' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-8 h-8 rounded-sm text-sm font-bold flex items-center justify-center transition-colors"
+            style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${C.goldBorderSm}` }}
+            aria-label="Close preview"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </main>
+  );
+}
