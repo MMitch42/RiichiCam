@@ -869,7 +869,7 @@ export default function Home() {
   const showDoraRow = doraScanned || doraIndicatorTiles.length > 0;
 
   return (
-    <main style={{ minHeight: '100vh', background: C.bg }}>
+    <main style={{ minHeight: '100vh', background: C.bg, paddingTop: 'env(safe-area-inset-top)' }}>
       <div className="max-w-md mx-auto px-4 py-8 space-y-3">
 
         {/* ── Header ───────────────────────────────────────────────────── */}
