@@ -66,10 +66,18 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
 
   const computeOverlay = useCallback(() => {
     const vid = videoRef.current;
-    const cont = containerRef.current;
-    if (!vid || !cont || !vid.videoWidth) return;
-    const cW = cont.clientWidth;
-    const cH = cont.clientHeight;
+    if (!vid || !vid.videoWidth) return;
+
+    // Use visualViewport (falling back to innerWidth/Height) rather than
+    // cont.clientWidth/clientHeight. On iOS Safari the DOM layout lags behind
+    // the camera stream when rotating — the video already reports landscape
+    // dimensions while the container still reports portrait sizes, producing
+    // large black bars at the top. Window/visualViewport dimensions update
+    // immediately with rotation and avoid the race condition.
+    const vp = window.visualViewport;
+    const cW = vp ? vp.width  : window.innerWidth;
+    const cH = vp ? vp.height : window.innerHeight;
+
     const vW = vid.videoWidth;
     const vH = vid.videoHeight;
     const scale = Math.min(cW / vW, cH / vH);
@@ -119,6 +127,16 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     const ro = new ResizeObserver(computeOverlay);
     ro.observe(cont);
     return () => ro.disconnect();
+  }, [computeOverlay]);
+
+  // visualViewport fires when the browser chrome shows/hides (e.g. iOS address
+  // bar toggling after rotation), giving us a second chance to recompute with
+  // the settled visual viewport size.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    vv.addEventListener('resize', computeOverlay);
+    return () => vv.removeEventListener('resize', computeOverlay);
   }, [computeOverlay]);
 
   // Re-compute when the video's intrinsic dimensions change (e.g. device rotates
