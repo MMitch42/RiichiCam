@@ -1418,27 +1418,25 @@ export default function Home() {
           </div>
 
           {/* Row 2: Training image contribution toggle */}
-          {trainingConsent !== null && (
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <span className="text-xs" style={{ color: C.textSec }}>Contribute scan images for training</span>
-              <button
-                onClick={() => {
-                  const next = trainingConsent === 'granted' ? 'denied' : 'granted';
-                  localStorage.setItem('trainingConsent', next);
-                  setTrainingConsent(next);
-                }}
-                aria-pressed={trainingConsent === 'granted'}
-                className="flex-shrink-0 px-2.5 py-0.5 text-xs font-semibold tracking-widest uppercase rounded-sm transition-colors"
-                style={
-                  trainingConsent === 'granted'
-                    ? { background: 'rgba(201,162,39,0.15)', color: C.gold, border: `1px solid ${C.gold}` }
-                    : { background: 'transparent', color: C.textSec, border: `1px solid rgba(201,162,39,0.15)` }
-                }
-              >
-                {trainingConsent === 'granted' ? 'ON' : 'OFF'}
-              </button>
-            </div>
-          )}
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <span className="text-xs" style={{ color: C.textSec }}>Contribute scan images for training</span>
+            <button
+              onClick={() => {
+                const next = trainingConsent === 'granted' ? 'denied' : 'granted';
+                localStorage.setItem('trainingConsent', next);
+                setTrainingConsent(next);
+              }}
+              aria-pressed={trainingConsent === 'granted'}
+              className="flex-shrink-0 px-2.5 py-0.5 text-xs font-semibold tracking-widest uppercase rounded-sm transition-colors"
+              style={
+                trainingConsent === 'granted'
+                  ? { background: 'rgba(201,162,39,0.15)', color: C.gold, border: `1px solid ${C.gold}` }
+                  : { background: 'transparent', color: C.textSec, border: `1px solid rgba(201,162,39,0.15)` }
+              }
+            >
+              {trainingConsent === 'granted' ? 'ON' : 'OFF'}
+            </button>
+          </div>
 
           {/* Row 3: GitHub + Privacy buttons */}
           <div className="flex justify-center gap-2">
