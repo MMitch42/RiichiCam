@@ -177,7 +177,7 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>10. Contact</h2>
       <p style={s.p}>
         Questions, deletion requests, or data subject requests:{" "}
-        <a href="mailto:mitchell.magid@gmail.com" style={s.a}>mitchell.magid@gmail.com</a>
+        <a href="mailto:support.riichicam@gmail.com" style={s.a}>support.riichicam@gmail.com</a>
       </p>
     </main>
   );
