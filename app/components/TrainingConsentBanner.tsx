@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const C = {
@@ -47,8 +48,9 @@ export default function TrainingConsentBanner({ onAccept, onDecline }: Props) {
           </p>
           <p className="text-xs mt-1 leading-relaxed" style={{ color: C.textSec }}>
             Your scanned tile images can be saved anonymously to train better detection models.
-            No personal data is collected, only the tile images you scan.
-            You can change this any time in the footer.
+            Images are stored privately and never shared or sold.
+            You can change this any time in the footer.{" "}
+            <Link href="/privacy" style={{ color: C.gold, textDecoration: "underline" }}>Privacy policy</Link>
           </p>
         </div>
         <div className="flex gap-2">
