@@ -356,15 +356,24 @@ export default function LandingPage() {
             </a>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <a
-              href="https://github.com/MMitch42/RiichiCam"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="lp-link"
-              style={{ fontSize: 11, color: C.textSec, textDecoration: 'none', transition: 'color 0.15s' }}
-            >
-              View on GitHub
-            </a>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <a
+                href="https://github.com/MMitch42/RiichiCam"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="lp-link"
+                style={{ fontSize: 11, color: C.textSec, textDecoration: 'none', transition: 'color 0.15s' }}
+              >
+                GitHub
+              </a>
+              <a
+                href="/privacy"
+                className="lp-link"
+                style={{ fontSize: 11, color: C.textSec, textDecoration: 'none', transition: 'color 0.15s' }}
+              >
+                Privacy
+              </a>
+            </div>
             <p style={{ fontSize: 11, color: C.textSec, margin: 0 }}>Made by Mitchell Magid</p>
           </div>
         </footer>
