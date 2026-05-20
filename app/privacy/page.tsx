@@ -179,6 +179,26 @@ export default function PrivacyPage() {
         Questions, deletion requests, or data subject requests:{" "}
         <a href="mailto:support.riichicam@gmail.com" style={s.a}>support.riichicam@gmail.com</a>
       </p>
+
+      <div style={{ marginTop: 48, paddingTop: 24, borderTop: "1px solid rgba(201,162,39,0.2)" }}>
+        <Link
+          href="/"
+          style={{
+            display: "inline-block",
+            padding: "8px 20px",
+            border: "1px solid rgba(201,162,39,0.2)",
+            borderRadius: 3,
+            color: "#9a8a6a",
+            textDecoration: "none",
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            transition: "border-color 0.15s, color 0.15s",
+          }}
+        >
+          ← Back to RiichiCam
+        </Link>
+      </div>
     </main>
   );
 }
