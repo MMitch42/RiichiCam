@@ -1,4 +1,4 @@
-const CACHE = 'riichicam-v1';
+const CACHE = 'riichicam-v2';
 const STATIC = [
   '/',
   '/score',
