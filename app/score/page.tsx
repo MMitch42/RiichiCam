@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { score } from '@/lib/scoring';
 import { sortTiles } from '@/lib/scoring/tiles';
+import { inferMelds } from '@/lib/scoring/meld-inference';
 import type { Hand, Meld, ScoreResult, Tile, SuitedValue, WindValue, LocalYakuConfig } from '@/lib/scoring/types';
 import { DEFAULT_LOCAL_YAKU } from '@/lib/scoring/types';
 import CameraCapture from '../components/CameraCapture';
@@ -508,6 +509,8 @@ export default function Home() {
   const [guidedOpen, setGuidedOpen] = useState(false);
   const [meldBuilderActive, setMeldBuilderActive] = useState(false);
   const [meldExternalSelect, setMeldExternalSelect] = useState<number | null>(null);
+  const [pendingMeldSolutions, setPendingMeldSolutions] = useState<Meld[][] | null>(null);
+  const [meldInferError, setMeldInferError] = useState<string | null>(null);
 
   // ── Win type ──────────────────────────────────────────────────────────────
   const [winType, setWinType] = useState<'tsumo' | 'ron'>('tsumo');
@@ -645,6 +648,8 @@ export default function Home() {
     setHandForceRevision(0);
     setDoraPaletteForced(false);
     setDetectError(null);
+    setPendingMeldSolutions(null);
+    setMeldInferError(null);
   }
 
   function handleClear() {
@@ -662,6 +667,8 @@ export default function Home() {
     setDoraPaletteForced(false);
     setLightboxUrl(null);
     setHonba(0);
+    setPendingMeldSolutions(null);
+    setMeldInferError(null);
   }
 
   async function handleHandCapture(base64: string) {
@@ -770,7 +777,20 @@ export default function Home() {
       if (result.hand?.length > 0) setHandTiles(sortTiles((result.hand as Tile[]).slice(0, 13)));
       if (result.winningTile) setWinningTile(result.winningTile as Tile);
       if (result.dora?.length > 0) setDoraIndicatorTiles(sortTiles((result.dora as Tile[]).slice(0, 8)));
-      if (result.melds?.length > 0) setMelds(result.melds);
+
+      // Meld inference — run client-side from raw detected tiles
+      if (result.meldTiles?.length > 0) {
+        const { solutions } = inferMelds(result.meldTiles as Tile[]);
+        if (solutions.length === 1) {
+          setMelds(solutions[0]);
+          setMeldInferError(null);
+        } else if (solutions.length > 1) {
+          setPendingMeldSolutions(solutions);
+          setMeldInferError(null);
+        } else {
+          setMeldInferError('Could not group the detected meld tiles into valid chi / pon / kan. Please add them manually below.');
+        }
+      }
       if (trainingConsent === null && result.rawPredictions) {
         pendingImages.current.push({ base64: data.fullImage, mode: 'guided', predictions: result.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
       }
@@ -898,7 +918,21 @@ export default function Home() {
           style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}
         >
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Hand</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>Hand</p>
+              {showHandRows && (
+                <span
+                  className="text-xs font-bold tracking-widest uppercase px-1.5 py-0.5 rounded-sm"
+                  style={
+                    melds.length > 0
+                      ? { background: 'rgba(201,162,39,0.15)', color: C.gold, border: `1px solid ${C.goldBorderSm}` }
+                      : { background: 'transparent', color: C.textDim, border: `1px solid ${C.goldBorderXs}` }
+                  }
+                >
+                  {melds.length > 0 ? 'Open' : 'Closed'}
+                </span>
+              )}
+            </div>
             {showHandRows && (
               <button
                 onClick={handleClearHand}
@@ -947,15 +981,105 @@ export default function Home() {
               />
 
               {(handScanned || handTiles.length > 0) && (
-                <MeldBuilder
-                  handTiles={handTiles}
-                  melds={melds}
-                  onHandTilesChange={setHandTiles}
+                <>
+                  {melds.length === 0 && !meldBuilderActive && (
+                    <p className="text-xs" style={{ color: C.textDim }}>
+                      Closed hand — tap below to declare a chi, pon, or kan.
+                    </p>
+                  )}
+                  <MeldBuilder
+                    handTiles={handTiles}
+                    melds={melds}
+                    onHandTilesChange={setHandTiles}
                   onMeldsChange={handleMeldsChange}
                   onActiveChange={setMeldBuilderActive}
                   externalSelectIdx={meldExternalSelect}
                   onExternalSelectConsumed={() => setMeldExternalSelect(null)}
                 />
+                </>
+              )}
+
+              {/* ── Meld inference error ───────────────────────────────── */}
+              {meldInferError && (
+                <div className="rounded-sm px-3 py-2" style={{ background: 'rgba(168,50,40,0.12)', border: `1px solid rgba(168,50,40,0.35)` }}>
+                  <p className="text-xs" style={{ color: C.redText }}>{meldInferError}</p>
+                </div>
+              )}
+
+              {/* ── Disambiguation: multiple valid groupings ───────────── */}
+              {pendingMeldSolutions && (
+                <div className="rounded-sm p-3 space-y-2" style={{ background: C.surface, border: `1px solid ${C.goldBorder}` }}>
+                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.gold }}>
+                    Multiple groupings found — pick the correct one
+                  </p>
+                  {pendingMeldSolutions.map((solution, si) => (
+                    <button
+                      key={si}
+                      onClick={() => { setMelds(solution); setPendingMeldSolutions(null); }}
+                      className="w-full text-left rounded-sm px-3 py-2 transition-colors"
+                      style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}` }}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = C.gold)}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.goldBorderSm)}
+                    >
+                      <div className="flex flex-wrap gap-x-3 gap-y-1">
+                        {solution.map((meld, mi) => {
+                          const typeLabel = { chi: 'Chi', pon: 'Pon', 'kan-open': 'Kan', 'kan-closed': 'Closed Kan', 'kan-added': 'Kan' }[meld.type];
+                          return (
+                            <span key={mi} className="flex items-center gap-1 text-xs" style={{ color: C.text }}>
+                              <span className="font-bold" style={{ color: C.gold }}>{typeLabel}</span>
+                              {meld.tiles.map((t, ti) => (
+                                <TileGraphic key={ti} tile={t} size="small" />
+                              ))}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPendingMeldSolutions(null)}
+                    className="text-xs transition-colors"
+                    style={{ color: C.textSec }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = C.gold)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = C.textSec)}
+                  >
+                    Dismiss — add manually
+                  </button>
+                </div>
+              )}
+
+              {/* ── Kan open / closed prompt ────────────────────────────── */}
+              {melds.some((m) => m.type === 'kan-open') && !pendingMeldSolutions && (
+                <div className="rounded-sm p-3 space-y-2" style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}>
+                  <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>
+                    Confirm kan type
+                  </p>
+                  {melds.map((meld, mi) => meld.type === 'kan-open' ? (
+                    <div key={mi} className="flex items-center gap-2 flex-wrap">
+                      <div className="flex gap-0.5">
+                        {meld.tiles.map((t, ti) => <TileGraphic key={ti} tile={t} size="small" />)}
+                      </div>
+                      <div className="flex gap-1 ml-auto">
+                        <button
+                          onClick={() => setMelds((prev) => prev.map((m, i) => i === mi ? { ...m, type: 'kan-open' } : m))}
+                          className="px-2 py-1 rounded-sm text-xs font-semibold tracking-wide transition-colors"
+                          style={{ background: C.goldMuted, color: C.gold, border: `1px solid ${C.gold}` }}
+                        >
+                          Open
+                        </button>
+                        <button
+                          onClick={() => setMelds((prev) => prev.map((m, i) => i === mi ? { ...m, type: 'kan-closed' } : m))}
+                          className="px-2 py-1 rounded-sm text-xs font-semibold tracking-wide transition-colors"
+                          style={{ background: 'transparent', color: C.textSec, border: `1px solid ${C.goldBorderSm}` }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
+                        >
+                          Closed
+                        </button>
+                      </div>
+                    </div>
+                  ) : null)}
+                </div>
               )}
 
               {handTiles.length + meldTileCount === 13 + numKans && (

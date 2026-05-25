@@ -199,13 +199,13 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
           onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold; } }}
           onMouseLeave={(e) => { e.currentTarget.style.borderColor = C.goldBorderSm; e.currentTarget.style.color = C.textSec; }}
         >
-          + Add Meld
+          + Declare Chi / Pon / Kan
         </button>
       ) : selectedIdx === null ? (
         // ── Stage 1: pick a tile ─────────────────────────────────────────
         <div className="space-y-3 rounded-sm p-3" style={{ background: C.bg, border: `1px solid ${C.goldBorderSm}` }}>
           <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>
-            Tap a tile to build a meld
+            Tap a tile from your hand to declare a call
           </p>
           <div className="flex flex-wrap gap-1.5">
             {handTiles.map((tile, i) => (
