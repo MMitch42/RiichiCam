@@ -35,14 +35,14 @@ interface BoxDef extends SectionBox {
 // Dora is ~60% the width of the frame. Winning tile is a small box.
 // Dora + Win share a top strip; Hand sits below as a long thin row.
 const LANDSCAPE: Record<GuidedSection, BoxDef> = {
-  dora:    { x: 0.02, y: 0.05, w: 0.60, h: 0.18, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
-  winning: { x: 0.66, y: 0.04, w: 0.14, h: 0.20, label: 'Win',              shortLabel: 'Win',  hint: '1 tile',   color: '#7ec8e3' },
-  hand:    { x: 0.02, y: 0.32, w: 0.94, h: 0.22, label: 'Hand',             shortLabel: 'Hand', hint: '13 tiles', color: C.gold },
+  dora:    { x: 0.06, y: 0.07, w: 0.58, h: 0.26, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
+  hand:    { x: 0.02, y: 0.42, w: 0.73, h: 0.34, label: 'Hand',             shortLabel: 'Hand', hint: '13 tiles', color: C.gold },
+  winning: { x: 0.77, y: 0.42, w: 0.18, h: 0.34, label: 'Win',              shortLabel: 'Win',  hint: '1 tile',   color: '#7ec8e3' },
 };
 const PORTRAIT: Record<GuidedSection, BoxDef> = {
-  dora:    { x: 0.02, y: 0.04, w: 0.72, h: 0.14, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
-  winning: { x: 0.78, y: 0.04, w: 0.14, h: 0.14, label: 'Win',              shortLabel: 'Win',  hint: '1 tile',   color: '#7ec8e3' },
-  hand:    { x: 0.02, y: 0.24, w: 0.94, h: 0.22, label: 'Hand',             shortLabel: 'Hand', hint: '13 tiles', color: C.gold },
+  dora:    { x: 0.02, y: 0.04, w: 0.96, h: 0.14, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
+  hand:    { x: 0.02, y: 0.25, w: 0.96, h: 0.18, label: 'Hand',             shortLabel: 'Hand', hint: '13 tiles', color: C.gold },
+  winning: { x: 0.02, y: 0.48, w: 0.22, h: 0.14, label: 'Win',              shortLabel: 'Win',  hint: '1 tile',   color: '#7ec8e3' },
 };
 
 const SECTION_ORDER: GuidedSection[] = ['hand', 'winning', 'dora'];
