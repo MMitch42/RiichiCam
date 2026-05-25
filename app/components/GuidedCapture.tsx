@@ -12,7 +12,7 @@ const C = {
   red:          '#cc5544',
 };
 
-export type GuidedSection = 'hand' | 'winning' | 'dora' | 'melds';
+export type GuidedSection = 'hand' | 'winning' | 'dora';
 
 export interface SectionBox { x: number; y: number; w: number; h: number }
 
@@ -31,23 +31,21 @@ interface BoxDef extends SectionBox {
 
 // Fractions of the video frame.
 //
-// Both orientations use thin-wide rectangles for Hand and Melds (tiles sit in a row).
-// Dora is ~half the width of Hand. Winning tile is a small square.
-// Hand + Melds are stacked rows; Dora + Win share the top strip.
+// Thin-wide rectangles for Hand (tiles sit in a row).
+// Dora is ~60% the width of the frame. Winning tile is a small box.
+// Dora + Win share a top strip; Hand sits below as a long thin row.
 const LANDSCAPE: Record<GuidedSection, BoxDef> = {
-  dora:    { x: 0.02, y: 0.05, w: 0.60, h: 0.18, label: 'Dora / Ura Dora', shortLabel: 'Dora',  hint: '1–8 tiles',         color: '#98e87e' },
-  winning: { x: 0.66, y: 0.04, w: 0.14, h: 0.20, label: 'Win',              shortLabel: 'Win',   hint: '1 tile',            color: '#7ec8e3' },
-  hand:    { x: 0.02, y: 0.30, w: 0.94, h: 0.21, label: 'Hand',             shortLabel: 'Hand',  hint: 'closed tiles only', color: C.gold },
-  melds:   { x: 0.02, y: 0.58, w: 0.94, h: 0.21, label: 'Chi / Pon / Kan',  shortLabel: 'Melds', hint: 'open tiles',        color: '#ff6633' },
+  dora:    { x: 0.02, y: 0.05, w: 0.60, h: 0.18, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
+  winning: { x: 0.66, y: 0.04, w: 0.14, h: 0.20, label: 'Win',              shortLabel: 'Win',  hint: '1 tile',   color: '#7ec8e3' },
+  hand:    { x: 0.02, y: 0.32, w: 0.94, h: 0.22, label: 'Hand',             shortLabel: 'Hand', hint: '13 tiles', color: C.gold },
 };
 const PORTRAIT: Record<GuidedSection, BoxDef> = {
-  dora:    { x: 0.02, y: 0.04, w: 0.72, h: 0.14, label: 'Dora / Ura Dora', shortLabel: 'Dora',  hint: '1–8 tiles',         color: '#98e87e' },
-  winning: { x: 0.78, y: 0.04, w: 0.14, h: 0.14, label: 'Win',              shortLabel: 'Win',   hint: '1 tile',            color: '#7ec8e3' },
-  hand:    { x: 0.02, y: 0.22, w: 0.94, h: 0.20, label: 'Hand',             shortLabel: 'Hand',  hint: 'closed tiles only', color: C.gold },
-  melds:   { x: 0.02, y: 0.46, w: 0.94, h: 0.20, label: 'Chi / Pon / Kan',  shortLabel: 'Melds', hint: 'open tiles',        color: '#ff6633' },
+  dora:    { x: 0.02, y: 0.04, w: 0.72, h: 0.14, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
+  winning: { x: 0.78, y: 0.04, w: 0.14, h: 0.14, label: 'Win',              shortLabel: 'Win',  hint: '1 tile',   color: '#7ec8e3' },
+  hand:    { x: 0.02, y: 0.24, w: 0.94, h: 0.22, label: 'Hand',             shortLabel: 'Hand', hint: '13 tiles', color: C.gold },
 };
 
-const SECTION_ORDER: GuidedSection[] = ['hand', 'winning', 'dora', 'melds'];
+const SECTION_ORDER: GuidedSection[] = ['hand', 'winning', 'dora'];
 
 interface OverlayRect { left: number; top: number; width: number; height: number }
 
@@ -66,7 +64,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
   const [isLandscape, setIsLandscape] = useState(true);
   const [overlay, setOverlay] = useState<OverlayRect>({ left: 0, top: 0, width: 0, height: 0 });
   const [sections, setSections] = useState<Record<GuidedSection, boolean>>({
-    hand: true, winning: true, dora: true, melds: false,
+    hand: true, winning: true, dora: true,
   });
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);

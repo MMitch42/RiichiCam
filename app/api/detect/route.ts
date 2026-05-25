@@ -35,12 +35,12 @@ async function callRoboflow(apiKey: string, image: string): Promise<RoboflowResp
 // actual image it received, so we can convert fractions to pixels accurately.
 function splitBySection(
   predictions: RawPrediction[],
-  sections: Partial<Record<'hand' | 'winning' | 'dora' | 'melds', SectionBox>>,
+  sections: Partial<Record<'hand' | 'winning' | 'dora', SectionBox>>,
   imgWidth: number,
   imgHeight: number,
-): { hand: Tile[]; winningTile: Tile | null; dora: Tile[]; meldTiles: Tile[] } {
-  const result: { hand: Tile[]; winningTile: Tile | null; dora: Tile[]; meldTiles: Tile[] } = {
-    hand: [], winningTile: null, dora: [], meldTiles: [],
+): { hand: Tile[]; winningTile: Tile | null; dora: Tile[] } {
+  const result: { hand: Tile[]; winningTile: Tile | null; dora: Tile[] } = {
+    hand: [], winningTile: null, dora: [],
   };
 
   const qualified = predictions.filter((p) => p.confidence >= MIN_CONFIDENCE);
@@ -63,7 +63,6 @@ function splitBySection(
     if (key === 'hand')    result.hand = tiles.slice(0, 13);
     if (key === 'winning') result.winningTile = tiles[0] ?? null;
     if (key === 'dora')    result.dora = tiles.slice(0, 8);
-    if (key === 'melds')   result.meldTiles = tiles; // no cap — up to 16 tiles (4 kans)
   }
 
   return result;
@@ -73,7 +72,7 @@ export async function POST(request: Request) {
   let body: {
     image?: string;
     mode?: string;
-    sections?: Partial<Record<'hand' | 'winning' | 'dora' | 'melds', SectionBox>>;
+    sections?: Partial<Record<'hand' | 'winning' | 'dora', SectionBox>>;
     save?: boolean;
     sessionId?: string;
     returnRawPredictions?: boolean;
