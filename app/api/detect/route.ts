@@ -45,11 +45,15 @@ function splitBySection(
 
   const qualified = predictions.filter((p) => p.confidence >= MIN_CONFIDENCE);
 
+  // Expand each section box by 2% on every side so tiles whose centres land
+  // just outside the drawn overlay boundary aren't silently dropped.
+  const PAD = 0.02;
+
   for (const [key, box] of Object.entries(sections) as [string, SectionBox][]) {
-    const x1 = box.x * imgWidth;
-    const y1 = box.y * imgHeight;
-    const x2 = (box.x + box.w) * imgWidth;
-    const y2 = (box.y + box.h) * imgHeight;
+    const x1 = Math.max(0, (box.x - PAD) * imgWidth);
+    const y1 = Math.max(0, (box.y - PAD) * imgHeight);
+    const x2 = Math.min(imgWidth, (box.x + box.w + PAD) * imgWidth);
+    const y2 = Math.min(imgHeight, (box.y + box.h + PAD) * imgHeight);
 
     const inBox = qualified
       .filter((p) => p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2)

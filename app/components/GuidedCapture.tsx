@@ -175,8 +175,8 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     const vid = videoRef.current;
     if (!vid || !vid.videoWidth) return;
 
-    // Resize to max 1600px (same cap as CameraCapture) to stay under Vercel body limit
-    const MAX = 1600;
+    // Allow up to 2048px so 1080p footage isn't downscaled — still well under Vercel's 4.5 MB body limit.
+    const MAX = 2048;
     const scale = Math.min(1, MAX / Math.max(vid.videoWidth, vid.videoHeight));
     const cW = Math.round(vid.videoWidth * scale);
     const cH = Math.round(vid.videoHeight * scale);
@@ -184,8 +184,13 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     const canvas = document.createElement('canvas');
     canvas.width = cW;
     canvas.height = cH;
-    canvas.getContext('2d')!.drawImage(vid, 0, 0, cW, cH);
-    const fullImage = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+    const ctx = canvas.getContext('2d')!;
+    // Mild contrast + brightness boost — significantly helps tile edge detection without
+    // retraining the model. ctx.filter silently no-ops on browsers that don't support it.
+    ctx.filter = 'contrast(1.15) brightness(1.05)';
+    ctx.drawImage(vid, 0, 0, cW, cH);
+    ctx.filter = 'none';
+    const fullImage = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
 
     const boxes = isLandscape ? LANDSCAPE : PORTRAIT;
     const enabledSections: Partial<Record<GuidedSection, SectionBox>> = {};
@@ -203,7 +208,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
   const anySectionOn = SECTION_ORDER.some((k) => sections[k]);
 
   return (
-    <div className="fixed z-50" style={{ top: 'env(safe-area-inset-top)', left: 0, right: 0, bottom: 0, background: '#000' }}>
+    <div className="fixed inset-0 z-50" style={{ background: '#000' }}>
       <div ref={containerRef} className="relative w-full h-full">
         {/* Camera feed */}
         <video
@@ -292,7 +297,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
 
         {/* Landscape hint */}
         {ready && !isLandscape && (
-          <div className="absolute top-14 left-0 right-0 flex justify-center pointer-events-none">
+          <div className="absolute left-0 right-0 flex justify-center pointer-events-none" style={{ top: 'calc(56px + env(safe-area-inset-top))' }}>
             <span className="px-3 py-1.5 rounded-sm text-xs tracking-wide" style={{ background: 'rgba(8,12,18,0.85)', color: C.gold, border: `1px solid ${C.goldBorderSm}` }}>
               Rotate to landscape for best results
             </span>
@@ -303,7 +308,12 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
       {/* Bottom controls */}
       <div
         className="absolute bottom-0 left-0 right-0 px-6"
-        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 60%, transparent)', paddingTop: isLandscape ? 12 : 24, paddingBottom: isLandscape ? 12 : 40 }}
+        style={{
+          background: 'linear-gradient(to top, rgba(0,0,0,0.85) 60%, transparent)',
+          paddingTop: isLandscape ? 12 : 24,
+          // env(safe-area-inset-bottom) covers the iOS home indicator and Android gesture bar
+          paddingBottom: `max(${isLandscape ? 12 : 40}px, calc(${isLandscape ? 12 : 40}px + env(safe-area-inset-bottom)))`,
+        }}
       >
         {isLandscape ? (
           /* Landscape: flash | shutter | toggles — all in one row */
@@ -468,8 +478,14 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
       {/* Close */}
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-colors"
-        style={{ background: 'rgba(8,12,18,0.75)', color: C.text, border: '1px solid rgba(240,234,216,0.15)' }}
+        className="absolute w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-colors"
+        style={{
+          top: 'calc(16px + env(safe-area-inset-top))',
+          right: 'calc(16px + env(safe-area-inset-right))',
+          background: 'rgba(8,12,18,0.75)',
+          color: C.text,
+          border: '1px solid rgba(240,234,216,0.15)',
+        }}
         aria-label="Close guided scan"
       >
         ✕
