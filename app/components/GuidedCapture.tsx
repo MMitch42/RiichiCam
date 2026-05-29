@@ -35,9 +35,11 @@ interface BoxDef extends SectionBox {
 // Dora is ~60% the width of the frame. Winning tile is a small box.
 // Dora + Win share a top strip; Hand sits below as a long thin row.
 const LANDSCAPE: Record<GuidedSection, BoxDef> = {
-  dora:    { x: 0.06, y: 0.07, w: 0.58, h: 0.26, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
-  hand:    { x: 0.02, y: 0.42, w: 0.73, h: 0.34, label: 'Hand',             shortLabel: 'Hand', hint: '13 tiles', color: C.gold },
-  winning: { x: 0.77, y: 0.42, w: 0.18, h: 0.34, label: 'Win',              shortLabel: 'Win',  hint: '1 tile',   color: '#7ec8e3' },
+  // dora y shifted to 0.15 (from 0.07) so the box stays on-screen on ultra-wide
+  // Android phones (20:9) which clip ~12% from top/bottom in cover mode.
+  dora:    { x: 0.06, y: 0.15, w: 0.58, h: 0.24, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
+  hand:    { x: 0.02, y: 0.44, w: 0.73, h: 0.34, label: 'Hand',             shortLabel: 'Hand', hint: '13 tiles', color: C.gold },
+  winning: { x: 0.77, y: 0.44, w: 0.18, h: 0.34, label: 'Win',              shortLabel: 'Win',  hint: '1 tile',   color: '#7ec8e3' },
 };
 const PORTRAIT: Record<GuidedSection, BoxDef> = {
   dora:    { x: 0.02, y: 0.04, w: 0.96, h: 0.14, label: 'Dora / Ura Dora', shortLabel: 'Dora', hint: '1–8 tiles', color: '#98e87e' },
@@ -73,14 +75,16 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     const vid = videoRef.current;
     const cont = containerRef.current;
     if (!vid || !cont || !vid.videoWidth) return;
-    // Use the container's actual rendered dimensions. With viewport-fit:cover and
-    // top:env(safe-area-inset-top) on the outer div, the container is already
-    // correctly sized to the usable area in both browser and PWA modes.
     const cW = cont.clientWidth;
     const cH = cont.clientHeight;
     const vW = vid.videoWidth;
     const vH = vid.videoHeight;
-    const scale = Math.min(cW / vW, cH / vH);
+    // Use cover scaling (Math.max) so the video fills the container on every
+    // screen ratio — no pillarboxing on wide Android screens. The overlay div
+    // will extend beyond the container edges; the container's overflow:hidden
+    // clips it cleanly. Section bounding boxes are fractions of the full video
+    // frame, so API-side coordinate math is unaffected by display clipping.
+    const scale = Math.max(cW / vW, cH / vH);
     const dW = vW * scale;
     const dH = vH * scale;
     setOverlay({ left: (cW - dW) / 2, top: (cH - dH) / 2, width: dW, height: dH });
@@ -209,8 +213,10 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
 
   return (
     <div className="fixed inset-0 z-50" style={{ background: '#000' }}>
-      <div ref={containerRef} className="relative w-full h-full">
-        {/* Camera feed */}
+      {/* overflow:hidden clips the overlay div when it extends beyond the screen
+          (which happens with cover-scale on ultra-wide Android landscape screens). */}
+      <div ref={containerRef} className="relative w-full h-full" style={{ overflow: 'hidden' }}>
+        {/* Camera feed — cover fills the screen; no pillarboxing on 20:9 Android phones */}
         <video
           ref={videoRef}
           autoPlay
@@ -218,7 +224,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
           muted
           onLoadedMetadata={handleVideoReady}
           className="w-full h-full"
-          style={{ objectFit: 'contain' }}
+          style={{ objectFit: 'cover' }}
         />
 
         {/* Bounding box overlays */}
@@ -259,13 +265,15 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
                       <div key={i} style={{ position: 'absolute', width: 12, height: 12, ...style }} />
                     ));
                   })()}
+                  {/* Label sits inside the top-left of the box so it's never
+                      clipped off-screen when cover-scale shifts the overlay up */}
                   <span style={{
                     position: 'absolute',
-                    top: -24,
-                    left: 0,
-                    fontSize: 12,
+                    top: 5,
+                    left: 6,
+                    fontSize: 11,
                     fontWeight: 700,
-                    letterSpacing: '0.12em',
+                    letterSpacing: '0.10em',
                     textTransform: 'uppercase',
                     color: on ? box.color : 'rgba(255,255,255,0.3)',
                     textShadow: '0 1px 4px rgba(0,0,0,0.9)',
