@@ -72,6 +72,19 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
 
+  // ── Zoom ──────────────────────────────────────────────────────────────────────
+  // zoomRef / hardwareZoomRef / zoomMaxRef mirror state but are readable inside
+  // the non-passive touchmove handler without stale-closure issues.
+  const [zoom, setZoom] = useState(1);
+  const [zoomMax, setZoomMax] = useState(5);
+  const [hardwareZoom, setHardwareZoom] = useState(false);
+  const outerRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(1);
+  const hardwareZoomRef = useRef(false);
+  const zoomMaxRef = useRef(5);
+  const pinchRef = useRef<{ dist: number; baseZoom: number } | null>(null);
+  const lastTapRef = useRef(0);
+
   const computeOverlay = useCallback(() => {
     const vid = videoRef.current;
     const cont = containerRef.current;
@@ -117,14 +130,50 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
         if (videoRef.current) videoRef.current.srcObject = stream;
         const track = stream.getVideoTracks()[0];
         if (track) {
-          const caps = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean };
+          const caps = track.getCapabilities() as MediaTrackCapabilities & {
+            torch?: boolean;
+            zoom?: { min: number; max: number; step?: number };
+          };
           if (caps.torch) setTorchSupported(true);
+          if (caps.zoom) {
+            hardwareZoomRef.current = true;
+            setHardwareZoom(true);
+            const max = Math.min(caps.zoom.max ?? 5, 10);
+            zoomMaxRef.current = max;
+            setZoomMax(max);
+          }
         }
       })
       .catch(() => setCameraError('Camera access denied. Use Photo Library or Take Photo instead.'));
 
     return () => streamRef.current?.getTracks().forEach((t) => t.stop());
   }, []);
+
+  // Non-passive touchmove so we can preventDefault during pinch (prevents page scroll).
+  // All values are read from refs to avoid stale closures.
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || !pinchRef.current) return;
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const raw = pinchRef.current.baseZoom * (dist / pinchRef.current.dist);
+      const clamped = Math.max(1, Math.min(zoomMaxRef.current, raw));
+      zoomRef.current = clamped;
+      setZoom(clamped);
+      if (hardwareZoomRef.current) {
+        const track = streamRef.current?.getVideoTracks()[0];
+        if (track) {
+          track.applyConstraints({ advanced: [{ zoom: clamped } as MediaTrackConstraintSet] }).catch(() => {});
+        }
+      }
+    };
+    el.addEventListener('touchmove', onMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onMove);
+  }, []); // stable — reads only refs
 
   useEffect(() => {
     const cont = containerRef.current;
@@ -160,6 +209,36 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     vid.addEventListener('resize', computeOverlay);
     return () => vid.removeEventListener('resize', computeOverlay);
   }, [computeOverlay]);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchRef.current = { dist: Math.sqrt(dx * dx + dy * dy), baseZoom: zoomRef.current };
+    }
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (e.touches.length < 2) pinchRef.current = null;
+    // Double-tap resets zoom to 1×
+    if (e.changedTouches.length === 1 && e.touches.length === 0) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        const newZoom = 1;
+        zoomRef.current = newZoom;
+        setZoom(newZoom);
+        if (hardwareZoomRef.current) {
+          const track = streamRef.current?.getVideoTracks()[0];
+          if (track) {
+            track.applyConstraints({ advanced: [{ zoom: 1 } as MediaTrackConstraintSet] }).catch(() => {});
+          }
+        }
+        lastTapRef.current = 0;
+      } else {
+        lastTapRef.current = now;
+      }
+    }
+  }
 
   async function toggleTorch() {
     const track = streamRef.current?.getVideoTracks()[0];
@@ -213,7 +292,13 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
   const anySectionOn = SECTION_ORDER.some((k) => sections[k]);
 
   return (
-    <div className="fixed inset-0 z-50" style={{ background: '#000' }}>
+    <div
+      ref={outerRef}
+      className="fixed inset-0 z-50"
+      style={{ background: '#000' }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* overflow:hidden clips the overlay div when it extends beyond the screen
           (which happens with cover-scale on ultra-wide Android landscape screens). */}
       <div ref={containerRef} className="relative w-full h-full" style={{ overflow: 'hidden' }}>
@@ -285,6 +370,33 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Zoom indicator — only on devices with hardware zoom */}
+        {ready && hardwareZoom && (
+          <div
+            className="absolute pointer-events-none flex items-center gap-1.5"
+            style={{
+              bottom: 12,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(0,0,0,0.55)',
+              color: zoom > 1.05 ? '#fff' : 'rgba(255,255,255,0.45)',
+              borderRadius: 4,
+              fontSize: 12,
+              fontWeight: 700,
+              padding: '3px 10px',
+              letterSpacing: '0.08em',
+              whiteSpace: 'nowrap',
+              border: zoom > 1.05 ? '1px solid rgba(255,255,255,0.25)' : '1px solid transparent',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+          >
+            {zoom.toFixed(1)}×
+            {zoom > 1.05 && (
+              <span style={{ opacity: 0.55, fontWeight: 400, fontSize: 10 }}>double-tap to reset</span>
+            )}
           </div>
         )}
 
