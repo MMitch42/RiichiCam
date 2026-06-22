@@ -184,6 +184,10 @@ export interface ChiitoitsuInterpretation {
   pairs: Tile[]; // 7 representative tiles (one from each pair)
   waitType: "tanki";
   winningTile: Tile;
+  // Some seven-pairs shapes (e.g. 223344m223344p55s) are also valid standard
+  // hands (ryanpeikou). Carried along so the caller can score both and keep
+  // whichever is worth more, instead of always assuming chiitoitsu.
+  standardAlt?: HandInterpretation[];
 }
 
 export interface KokushiInterpretation {
@@ -266,11 +270,13 @@ export function parseHand(
     }
     const pairs = Array.from(counts.values()).filter((e) => e.count === 2);
     if (pairs.length === 7) {
+      const standardAlt = buildInterpretations(allClosed, winningTile);
       return {
         type: "chiitoitsu",
         pairs: pairs.map((p) => p.tile),
         waitType: "tanki",
         winningTile,
+        standardAlt: standardAlt.length > 0 ? standardAlt : undefined,
       };
     }
   }

@@ -42,6 +42,41 @@ function bestInterpretation(
   return best!;
 }
 
+// Scores a standard-hand grouping; returns null if no yaku applies (can't win on this shape).
+function scoreStandardInterpretations(
+  interpretations: HandInterpretation[],
+  hand: Hand,
+  rules: RulesConfig,
+  doraCount: number,
+  akaDoraCount: number,
+  uraDoraCount: number,
+  isDealer: boolean,
+): ScoreResult | null {
+  const { fu, yaku: allYaku, han: structuralHan } = bestInterpretation(interpretations, hand, rules);
+  const isYakuman = allYaku.some((y) => y.isYakuman);
+
+  if (!isYakuman && allYaku.filter((y) => !y.isYakuman).length === 0) {
+    return null;
+  }
+
+  const totalHan = structuralHan + doraCount + uraDoraCount;
+  const name = handName(totalHan, fu.total, isYakuman, rules.kiriagemangan);
+  const points = calculatePoints(totalHan, fu.total, isDealer, hand.winType, isYakuman, rules.kiriagemangan);
+
+  return {
+    valid: true,
+    yaku: allYaku,
+    totalHan: structuralHan,
+    fu: fu.total,
+    fuBreakdown: fu,
+    doraCount,
+    akaDoraCount,
+    uraDoraCount,
+    points,
+    handName: name,
+  };
+}
+
 export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreResult {
   const rules: RulesConfig = { ...DEFAULT_RULES, ...rulesOverride };
 
@@ -123,7 +158,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
     const name = handName(totalHan, 25, isYakuman, rules.kiriagemangan);
     const points = calculatePoints(totalHan, 25, isDealer, hand.winType, isYakuman, rules.kiriagemangan);
 
-    return {
+    const chiitoitsuResult: ScoreResult = {
       valid: true,
       yaku: allYaku,
       totalHan: structuralHan,
@@ -135,6 +170,25 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
       points,
       handName: name,
     };
+
+    // Some seven-pairs shapes (e.g. ryanpeikou) also parse as a standard hand
+    // worth more — score both and keep whichever pays out more.
+    if (parsed.standardAlt) {
+      const standardResult = scoreStandardInterpretations(
+        parsed.standardAlt,
+        hand,
+        rules,
+        doraCount,
+        akaDoraCount,
+        uraDoraCount,
+        isDealer,
+      );
+      if (standardResult && standardResult.points.total > chiitoitsuResult.points.total) {
+        return standardResult;
+      }
+    }
+
+    return chiitoitsuResult;
   }
 
   // Standard hand
