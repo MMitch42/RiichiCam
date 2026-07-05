@@ -163,22 +163,40 @@ export default function TileRow({ tiles, onChange, maxTiles, minTiles = 0, label
         </button>
       )}
 
-      {tiles.length > 0 && (
+      {(tiles.length > 0 || (effectiveOpen && maxTiles !== undefined)) && (
         <div className="flex flex-wrap gap-1.5">
-          {tiles.map((tile, i) => (
-            <button
-              key={i}
-              onClick={() => onTileClick ? onTileClick(i) : (!readOnly && removeTile(i))}
-              aria-label={onTileClick ? tileName(tile) : (readOnly ? tileName(tile) : `Remove ${tileName(tile)}`)}
-              className="px-2 py-1 rounded text-sm font-medium flex items-center gap-1 transition-colors"
-              style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}`, color: C.text, cursor: (onTileClick || !readOnly) ? 'pointer' : 'default' }}
-              onMouseEnter={(e) => { if (onTileClick || !readOnly) e.currentTarget.style.borderColor = C.gold; }}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.goldBorderSm)}
-            >
-              <TileGraphic tile={tile} size="normal" />
-              {!onTileClick && <span style={{ color: C.textSec }}>×</span>}
-            </button>
-          ))}
+          {(maxTiles !== undefined ? Array.from({ length: maxTiles }, (_, i) => i) : tiles.map((_, i) => i)).map((i) => {
+            const tile = tiles[i];
+            if (!tile) {
+              // Reserved slot, sized to match a filled tile button so the row's
+              // height/wrap points stay constant as tiles are added — the
+              // palette below never moves.
+              return (
+                <div
+                  key={i}
+                  className="px-2 py-1 rounded text-sm font-medium flex items-center gap-1"
+                  style={{ border: `1px dashed ${C.goldBorderXs}` }}
+                >
+                  <span style={{ display: 'inline-block', width: 40, height: 56 }} />
+                  {!onTileClick && <span style={{ visibility: 'hidden' }}>×</span>}
+                </div>
+              );
+            }
+            return (
+              <button
+                key={i}
+                onClick={() => onTileClick ? onTileClick(i) : (!readOnly && removeTile(i))}
+                aria-label={onTileClick ? tileName(tile) : (readOnly ? tileName(tile) : `Remove ${tileName(tile)}`)}
+                className="px-2 py-1 rounded text-sm font-medium flex items-center gap-1 transition-colors"
+                style={{ background: C.surfaceEl, border: `1px solid ${C.goldBorderSm}`, color: C.text, cursor: (onTileClick || !readOnly) ? 'pointer' : 'default' }}
+                onMouseEnter={(e) => { if (onTileClick || !readOnly) e.currentTarget.style.borderColor = C.gold; }}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = C.goldBorderSm)}
+              >
+                <TileGraphic tile={tile} size="normal" />
+                {!onTileClick && <span style={{ color: C.textSec }}>×</span>}
+              </button>
+            );
+          })}
         </div>
       )}
 
