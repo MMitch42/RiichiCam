@@ -119,16 +119,15 @@ function determineWait(
         .filter(isSuited)
         .map((t) => (t as SuitedTile).value)
         .sort((a, b) => a - b) as number[];
-      const [low, , high] = vals;
+      const [low, mid, high] = vals;
 
-      if (wv === vals[1]) return "kanchan"; // middle tile
-      if (wv === low) {
-        // penchan if low === 1, else ryanmen
-        return low === 1 ? "penchan" : "ryanmen";
-      }
-      if (wv === high) {
-        return high === 9 ? "penchan" : "ryanmen";
-      }
+      if (wv === mid) return "kanchan"; // middle tile → closed wait
+      // Penchan (edge wait): the winning tile is the only side that could
+      // complete the partial run — held 1-2 won on 3, or held 8-9 won on 7.
+      if (wv === high && high === 3) return "penchan"; // held 1-2, waited 3
+      if (wv === low && low === 7) return "penchan"; // held 8-9, waited 7
+      // Any other end completion is a two-sided ryanmen wait.
+      return "ryanmen";
     }
   }
 

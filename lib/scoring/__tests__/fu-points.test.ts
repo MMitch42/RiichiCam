@@ -166,3 +166,58 @@ describe("fu base — tsumo uses 20, closed ron uses 30, open uses 20", () => {
     expect(result.fu).toBe(30);
   });
 });
+
+// ─── Wait-type detection (ryanmen vs penchan) ─────────────────────────────────
+// Regression: winning on the 9 of a 7-8-9 run (held 7-8) is a two-sided 6/9
+// ryanmen wait, not a penchan. The old code inverted the edge cases, denying
+// Pinfu and adding 2 fu. See hand-parser determineWait().
+
+describe("wait type — ryanmen vs penchan at sequence edges", () => {
+  // Pair 3m3m, runs 789m / 456p / 123s / 456s; won on 9m (held 7-8m → 6/9 wait).
+  // Closed riichi ron. Should be Riichi + Pinfu → all sequences, ryanmen wait.
+  it("won on 9 of 789 (held 7-8) = pinfu ryanmen, 30 fu", () => {
+    const result = score(makeHand(
+      [m(3), m(3), m(7), m(8), p(4), p(5), p(6), s(1), s(2), s(3), s(4), s(5), s(6)],
+      m(9),
+      { winType: "ron", riichi: true, seatWind: "south", roundWind: "east" },
+    ));
+    expect(result.valid).toBe(true);
+    expect(result.yaku.map((y) => y.name)).toContain("pinfu");
+    expect(result.fu).toBe(30);
+  });
+
+  // Won on 1 of 123 (held 2-3m → 1/4 wait) is also ryanmen, not penchan.
+  it("won on 1 of 123 (held 2-3) = ryanmen, pinfu", () => {
+    const result = score(makeHand(
+      [m(2), m(3), p(4), p(5), p(6), s(1), s(2), s(3), s(4), s(5), s(6), s(8), s(8)],
+      m(1),
+      { winType: "ron", riichi: true, seatWind: "south", roundWind: "east" },
+    ));
+    expect(result.valid).toBe(true);
+    expect(result.yaku.map((y) => y.name)).toContain("pinfu");
+  });
+
+  // Genuine penchan: held 8-9m, won on 7m — only the 7 completes it. No pinfu, +2 fu.
+  it("won on 7 of 789 (held 8-9) = penchan, no pinfu, +2 waitFu", () => {
+    const result = score(makeHand(
+      [m(8), m(9), p(4), p(5), p(6), s(1), s(2), s(3), s(4), s(5), s(6), s(8), s(8)],
+      m(7),
+      { winType: "ron", riichi: true, seatWind: "south", roundWind: "east" },
+    ));
+    expect(result.valid).toBe(true);
+    expect(result.yaku.map((y) => y.name)).not.toContain("pinfu");
+    expect(result.fuBreakdown.waitFu).toBe(2);
+  });
+
+  // Genuine penchan: held 1-2p, won on 3p.
+  it("won on 3 of 123 (held 1-2) = penchan, no pinfu", () => {
+    const result = score(makeHand(
+      [m(4), m(5), m(6), p(1), p(2), s(1), s(2), s(3), s(4), s(5), s(6), s(8), s(8)],
+      p(3),
+      { winType: "ron", riichi: true, seatWind: "south", roundWind: "east" },
+    ));
+    expect(result.valid).toBe(true);
+    expect(result.yaku.map((y) => y.name)).not.toContain("pinfu");
+    expect(result.fuBreakdown.waitFu).toBe(2);
+  });
+});
