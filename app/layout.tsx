@@ -13,7 +13,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: "RiichiCam — Riichi Mahjong Scorer & Hand Calculator with Camera Detection",
+    default: "RiichiCam - Riichi Mahjong Scorer & Hand Calculator with Camera Detection",
     template: "%s · RiichiCam",
   },
   description: "Free riichi mahjong hand scorer and scoring calculator. Scan tiles with your camera or input them manually to calculate all yaku, fu, han, and dealer/non-dealer payments for tsumo and ron.",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     canonical: "https://riichicam.com",
   },
   openGraph: {
-    title: "RiichiCam — Riichi Mahjong Scorer & Hand Calculator",
+    title: "RiichiCam - Riichi Mahjong Scorer & Hand Calculator",
     description: "Free riichi mahjong hand scorer. Scan tiles with your camera or input them manually to calculate all yaku, fu, han, and payments.",
     url: "https://riichicam.com",
     siteName: "RiichiCam",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "RiichiCam — Riichi Mahjong Scorer & Hand Calculator",
+    title: "RiichiCam - Riichi Mahjong Scorer & Hand Calculator",
     description: "Free riichi mahjong hand scorer with camera tile detection. All yaku, fu, and payment calculations.",
   },
 };

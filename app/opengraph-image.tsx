@@ -1,9 +1,9 @@
 import { ImageResponse } from "next/og";
 
 // Social share card shown when riichicam.com is linked on Twitter/X, Discord,
-// iMessage, Slack, etc. Prerendered at build time — no external assets needed.
+// iMessage, Slack, etc. Prerendered at build time, no external assets needed.
 export const alt =
-  "RiichiCam — free riichi mahjong hand scorer and scoring calculator with camera tile detection";
+  "RiichiCam: free riichi mahjong hand scorer and scoring calculator with camera tile detection";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -97,7 +97,7 @@ export default function OpengraphImage() {
           }}
         >
           Scan your tiles with your camera or input them manually. Yaku, fu,
-          han, and payments — instantly and free.
+          han, and payments. Instantly and free.
         </div>
       </div>
     ),

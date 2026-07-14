@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "RiichiCam — Riichi Mahjong Scorer & Hand Calculator with Camera Detection",
+  title: "RiichiCam - Riichi Mahjong Scorer & Hand Calculator with Camera Detection",
   description: "Free riichi mahjong hand scorer and scoring calculator. Scan your tiles with your camera or input them manually to get yaku, fu, han, and dealer/non-dealer payments instantly.",
   keywords: [
     "mahjong hand scorer",
