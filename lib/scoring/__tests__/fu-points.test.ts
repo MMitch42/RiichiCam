@@ -30,7 +30,7 @@ function makeHand(closedTiles: Tile[], winningTile: Tile, overrides: Partial<Han
 
 // ─── handName: mangan threshold ───────────────────────────────────────────────
 
-describe("handName — mangan thresholds", () => {
+describe("handName - mangan thresholds", () => {
   // Below 2000 basic points → no cap
   it("4h 20f → undefined  (basic 1280)", () => expect(handName(4, 20, false, false)).toBeUndefined());
   it("4h 30f → undefined  (basic 1920 < 2000)", () => expect(handName(4, 30, false, false)).toBeUndefined());
@@ -58,7 +58,7 @@ describe("handName — mangan thresholds", () => {
 
 // ─── calculatePoints: payment correctness at mangan boundaries ────────────────
 
-describe("calculatePoints — mangan boundary payments (non-dealer)", () => {
+describe("calculatePoints - mangan boundary payments (non-dealer)", () => {
   it("4h 40f ron = 8000 mangan", () => {
     expect(calculatePoints(4, 40, false, "ron", false, false).total).toBe(8000);
   });
@@ -74,7 +74,7 @@ describe("calculatePoints — mangan boundary payments (non-dealer)", () => {
     expect(calculatePoints(3, 70, false, "ron", false, false).total).toBe(8000);
   });
 
-  // 4h 30f: basic=1920, roundUp100(1920×4)=7700 — NOT mangan without kiriagemangan
+  // 4h 30f: basic=1920, roundUp100(1920×4)=7700 - NOT mangan without kiriagemangan
   it("4h 30f ron, no kiriagemangan = 7700 (below mangan)", () => {
     expect(calculatePoints(4, 30, false, "ron", false, false).total).toBe(7700);
   });
@@ -83,7 +83,7 @@ describe("calculatePoints — mangan boundary payments (non-dealer)", () => {
     expect(calculatePoints(4, 30, false, "ron", false, true).total).toBe(8000);
   });
 
-  // 3h 60f: basic=1920 — same boundary as 4h 30f
+  // 3h 60f: basic=1920 - same boundary as 4h 30f
   it("3h 60f ron, no kiriagemangan = 7700 (below mangan)", () => {
     expect(calculatePoints(3, 60, false, "ron", false, false).total).toBe(7700);
   });
@@ -95,7 +95,7 @@ describe("calculatePoints — mangan boundary payments (non-dealer)", () => {
 
 // ─── fu base: tsumo=20, closed ron=30, open=20 ───────────────────────────────
 
-describe("fu base — tsumo uses 20, closed ron uses 30, open uses 20", () => {
+describe("fu base - tsumo uses 20, closed ron uses 30, open uses 20", () => {
   // Non-pinfu tsumo: not pinfu because of yakuhai (haku) pair.
   // Groups: 234m 234p 567p 56s(wait), pair: haku haku
   // fu: base 20 + tsumo 2 + haku pair 2 + ryanmen 0 = 24 → 30
@@ -136,7 +136,7 @@ describe("fu base — tsumo uses 20, closed ron uses 30, open uses 20", () => {
     expect(result.fu).toBe(40);
   });
 
-  // Open tsumo (chi meld) — base must be 20, not 30.
+  // Open tsumo (chi meld) - base must be 20, not 30.
   // Meld: 234m(chi). Groups: 567m 234p 56s(ryanmen→7s), pair: 8s8s
   // fu: base 20 + tsumo 2 + chi 0 + seqs 0 + ryanmen 0 + pair 0 = 22 → 30
   it("open tsumo (chi): base=20, total fu=30", () => {
@@ -151,7 +151,7 @@ describe("fu base — tsumo uses 20, closed ron uses 30, open uses 20", () => {
     expect(result.fu).toBe(30);
   });
 
-  // Open ron (pon of haku) — base must be 20, not 30.
+  // Open ron (pon of haku) - base must be 20, not 30.
   // Meld: haku pon (open honor, 4fu). Groups: 234m 567p 23s(ryanmen→4s), pair: 8s8s
   // fu: base 20 + pon honor open 4 + seqs 0 + ryanmen 0 + pair 0 = 24 → 30
   it("open ron (pon of haku): base=20, total fu=30", () => {
@@ -172,7 +172,7 @@ describe("fu base — tsumo uses 20, closed ron uses 30, open uses 20", () => {
 // ryanmen wait, not a penchan. The old code inverted the edge cases, denying
 // Pinfu and adding 2 fu. See hand-parser determineWait().
 
-describe("wait type — ryanmen vs penchan at sequence edges", () => {
+describe("wait type - ryanmen vs penchan at sequence edges", () => {
   // Pair 3m3m, runs 789m / 456p / 123s / 456s; won on 9m (held 7-8m → 6/9 wait).
   // Closed riichi ron. Should be Riichi + Pinfu → all sequences, ryanmen wait.
   it("won on 9 of 789 (held 7-8) = pinfu ryanmen, 30 fu", () => {
@@ -197,7 +197,7 @@ describe("wait type — ryanmen vs penchan at sequence edges", () => {
     expect(result.yaku.map((y) => y.name)).toContain("pinfu");
   });
 
-  // Genuine penchan: held 8-9m, won on 7m — only the 7 completes it. No pinfu, +2 fu.
+  // Genuine penchan: held 8-9m, won on 7m - only the 7 completes it. No pinfu, +2 fu.
   it("won on 7 of 789 (held 8-9) = penchan, no pinfu, +2 waitFu", () => {
     const result = score(makeHand(
       [m(8), m(9), p(4), p(5), p(6), s(1), s(2), s(3), s(4), s(5), s(6), s(8), s(8)],

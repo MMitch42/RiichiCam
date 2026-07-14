@@ -275,7 +275,7 @@ export function detectYaku(
     yaku.push({ name: "junchan", nameJa: "純全帯么九", han, isYakuman: false });
   }
 
-  // Honroutou: all tiles are terminals or honors (mix — not pure honors or pure terminals)
+  // Honroutou: all tiles are terminals or honors (mix - not pure honors or pure terminals)
   if (tiles.every(isTerminalOrHonor) && tiles.some(isHonor) && tiles.some((t) => isSuited(t) && isTerminal(t))) {
     yaku.push({ name: "honroutou", nameJa: "混老頭", han: 2, isYakuman: false });
   }
@@ -340,7 +340,7 @@ export function detectYaku(
       yaku.push({ name: "chuupinraoyui", nameJa: "九筒撈魚", han: 1, isYakuman: false });
     }
 
-    // Uumensai: all five categories present — man, pin, sou, wind, dragon
+    // Uumensai: all five categories present - man, pin, sou, wind, dragon
     if (local.uumensai) {
       const hasMan = tiles.some((t) => isSuited(t) && (t as SuitedTile).suit === "man");
       const hasPin = tiles.some((t) => isSuited(t) && (t as SuitedTile).suit === "pin");

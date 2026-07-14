@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — RiichiCam",
-  description: "Privacy policy for RiichiCam — what data we collect, how we use it, and your rights.",
+  title: "Privacy Policy - RiichiCam",
+  description: "Privacy policy for RiichiCam: what data we collect, how we use it, and your rights.",
 };
 
 const s = {
@@ -34,22 +34,22 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>1. What we collect</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Camera images</strong> — Photos you take are sent to our detection API.
+          <strong>Camera images</strong>: Photos you take are sent to our detection API.
           They are <em>not stored</em> unless you explicitly opt in (see §3 below).
         </li>
         <li>
-          <strong>Training metadata (opt-in only)</strong> — When you consent to contribute
+          <strong>Training metadata (opt-in only)</strong>: When you consent to contribute
           training data, each saved image is accompanied by: a timestamp, the scan mode used,
           an anonymous session ID (randomly generated per session, not linked to you), image
           dimensions, and the model's tile predictions.
         </li>
         <li>
-          <strong>Analytics</strong> — We use Vercel Analytics (cookieless) and Google
+          <strong>Analytics</strong>: We use Vercel Analytics (cookieless) and Google
           Analytics 4 to collect anonymous usage statistics such as page views and session
           counts. Neither service is configured to collect personally identifiable information.
         </li>
         <li>
-          <strong>Local storage</strong> — Your scoring preferences and training consent
+          <strong>Local storage</strong>: Your scoring preferences and training consent
           choice are saved in your browser's local storage. This data never leaves your device.
         </li>
       </ul>
@@ -89,11 +89,11 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>4. Cookies and analytics</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Vercel Analytics</strong> — Cookieless, privacy-preserving analytics.
+          <strong>Vercel Analytics</strong>: Cookieless, privacy-preserving analytics.
           No cookies are set. No cross-site tracking.
         </li>
         <li>
-          <strong>Google Analytics 4</strong> — Sets first-party cookies (<code>_ga</code>,
+          <strong>Google Analytics 4</strong>: Sets first-party cookies (<code>_ga</code>,
           <code>_ga_*</code>) to distinguish sessions. Data is anonymised and aggregated.
           IP anonymisation is enabled by default in GA4. You can opt out via{" "}
           <a href="https://tools.google.com/dlpage/gaoptout" style={s.a}>Google's opt-out browser add-on</a>.
@@ -104,21 +104,21 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>5. Third-party services</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Roboflow</strong> — Primary tile detection inference. Images sent for
+          <strong>Roboflow</strong>: Primary tile detection inference. Images sent for
           detection are subject to{" "}
           <a href="https://roboflow.com/privacy" style={s.a}>Roboflow's privacy policy</a>.
         </li>
         <li>
-          <strong>Google Gemini</strong> — Fallback tile detection. Subject to{" "}
+          <strong>Google Gemini</strong>: Fallback tile detection. Subject to{" "}
           <a href="https://policies.google.com/privacy" style={s.a}>Google's privacy policy</a>.
         </li>
         <li>
-          <strong>Vercel</strong> — Hosting, serverless functions, Blob storage, and
+          <strong>Vercel</strong>: Hosting, serverless functions, Blob storage, and
           analytics. Subject to{" "}
           <a href="https://vercel.com/legal/privacy-policy" style={s.a}>Vercel's privacy policy</a>.
         </li>
         <li>
-          <strong>Google Analytics</strong> — Usage analytics. Subject to{" "}
+          <strong>Google Analytics</strong>: Usage analytics. Subject to{" "}
           <a href="https://policies.google.com/privacy" style={s.a}>Google's privacy policy</a>.
         </li>
       </ul>
@@ -127,15 +127,15 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>6. Data retention</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Detection images (not opted-in)</strong> — Discarded immediately after
+          <strong>Detection images (not opted-in)</strong>: Discarded immediately after
           the API response is returned.
         </li>
         <li>
-          <strong>Training images (opted-in)</strong> — Retained indefinitely for model
+          <strong>Training images (opted-in)</strong>: Retained indefinitely for model
           training. Deleted upon request (see §8).
         </li>
         <li>
-          <strong>Analytics</strong> — Retained per each service's default policy
+          <strong>Analytics</strong>: Retained per each service's default policy
           (Google Analytics default: 14 months).
         </li>
       </ul>

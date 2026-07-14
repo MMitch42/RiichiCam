@@ -253,7 +253,7 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
             </button>
           </div>
 
-          {/* Chi options — one card per valid sequence */}
+          {/* Chi options - one card per valid sequence */}
           {possibleChis.map((indices, i) => {
             const tiles = indices.map((idx) => handTiles[idx]);
             const highlightPos = indices.indexOf(selectedIdx!);
@@ -278,7 +278,7 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
             />
           )}
 
-          {/* Kan — open and closed */}
+          {/* Kan - open and closed */}
           {kanIndices && (() => {
             const kanTiles = kanIndices.map((idx) => handTiles[idx]);
             if (kanTiles.length === 3) {

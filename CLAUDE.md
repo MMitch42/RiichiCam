@@ -1,4 +1,4 @@
-# RiichiCam — Architecture & Build Plan
+# RiichiCam - Architecture & Build Plan
 
 ## Architecture
 
@@ -7,10 +7,10 @@ lib/scoring/
   types.ts       # All public types: Tile, Hand, ScoreResult, RulesConfig, DEFAULT_RULES
   tiles.ts       # Tile utilities: equality, dora resolution, aka counting, sorting
   hand-parser.ts # Winning hand analysis: standard groupings, chiitoitsu, kokushi
-  yaku.ts        # detectYaku() + detectYakuman() — pure functions over parsed hand
+  yaku.ts        # detectYaku() + detectYakuman() - pure functions over parsed hand
   fu.ts          # calculateFu(), chiitoitsiFuBreakdown()
   points.ts      # calculatePoints(), handName()
-  index.ts       # score(hand, rules?) → ScoreResult — public entry point
+  index.ts       # score(hand, rules?) → ScoreResult - public entry point
   __tests__/
     scoring.test.ts      # 39 tests (vitest)
     fu-points.test.ts    # 28 tests
@@ -21,14 +21,14 @@ lib/scoring/
 
 - `score()` is a pure function; no global state
 - `Hand.closedTiles` does NOT include the winning tile (it's passed separately)
-- Dealer derived from `seatWind === 'east'` only — no separate `dealer` field
+- Dealer derived from `seatWind === 'east'` only - no separate `dealer` field
 - Chiitoitsu `FuBreakdown`: `base:25`, all others `0` (no sub-calculation)
 - `WIND_DORA_ORDER` / `DRAGON_DORA_ORDER` are the single source of truth for dora indicator resolution
-- `doubleWindPairFu: 2 | 4` in `RulesConfig` — default `4` (Mahjong Soul)
-- `akaDoraCount: 0 | 3 | 4` in `RulesConfig` — default `3`; aka counted as dora not yaku
+- `doubleWindPairFu: 2 | 4` in `RulesConfig` - default `4` (Mahjong Soul)
+- `akaDoraCount: 0 | 3 | 4` in `RulesConfig` - default `3`; aka counted as dora not yaku
 - Double-wind yakuhai: East triplet in East seat + East round = **2 han** (counted once per matching category)
 - `MANGAN_BASIC = 2000` (the base payment unit; non-dealer ron = ×4 = 8000)
-- Library: implemented from scratch — existing npm packages (riichi, riichi-hand) are unmaintained and incomplete
+- Library: implemented from scratch - existing npm packages (riichi, riichi-hand) are unmaintained and incomplete
 
 ### Rules defaults (WRC/Mahjong Soul)
 
@@ -42,27 +42,27 @@ lib/scoring/
 
 ## Multi-step build plan
 
-### Step 1 — Scoring engine (DONE)
+### Step 1 - Scoring engine (DONE)
 - Next.js 14 App Router scaffold, TypeScript strict, Tailwind, Vitest
 - Pure `score()` function, all yaku/yakuman, fu, points
 - 67 tests passing (scoring.test.ts + fu-points.test.ts), clean build
 
-### Step 2 — Manual scoring UI (DONE)
+### Step 2 - Manual scoring UI (DONE)
 - Tile picker: full 34-tile palette, winning tile, open melds (chi/pon/kan)
 - Wind/flags form: seat/round wind, riichi, double riichi, ippatsu, haitei/houtei/rinshan/chankan/renho, honba
 - ScoreResult display: yaku list with tooltips, fu breakdown panel, payment table, tenpai calculator
 - Local storage for rules preferences
 
-### Step 3 — Camera tile recognition (DONE)
+### Step 3 - Camera tile recognition (DONE)
 - Primary: Roboflow custom-trained model (`riichicam/3`) via `/api/detect`
 - Fallback: Google Gemini 2.0 Flash via `/api/detect-gemini`
 - Modes: individual (hand/dora/winning tile separately) and guided (full-frame with bounding box sections)
 - User correction flow, scan preview with lightbox, training data saving to Vercel Blob with consent banner
 
-### Step 4 — Persistent history (NOT STARTED)
+### Step 4 - Persistent history (NOT STARTED)
 - Training image storage exists (Vercel Blob) but no scored hand history
 - Missing: hand history list view, replay, shareable hand links, Postgres/Neon integration
 
-### Step 5 — Polish (PARTIAL)
+### Step 5 - Polish (PARTIAL)
 - Done: mobile-first layout, PWA manifest + install banner, dark theme, Buy Me a Coffee link, landing page with FAQ
 - Missing: keyboard shortcuts, dedicated rule variant settings page, shareable hand links (URL encoding)

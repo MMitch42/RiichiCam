@@ -124,23 +124,23 @@ export interface ScoreResult {
 // ─── Local yaku config ────────────────────────────────────────────────────────
 
 export interface LocalYakuConfig {
-  /** 人和 — Non-dealer wins on first round of discards before their draw (5 han) */
+  /** 人和 - Non-dealer wins on first round of discards before their draw (5 han) */
   renho: boolean;
-  /** 一筒摸月 — Win by tsumo on 1-pin (1 han) */
+  /** 一筒摸月 - Win by tsumo on 1-pin (1 han) */
   iipinmoyue: boolean;
-  /** 九筒撈魚 — Win by ron on 9-pin (1 han) */
+  /** 九筒撈魚 - Win by ron on 9-pin (1 han) */
   chuupinraoyui: boolean;
-  /** 大車輪 — 22334455667788 all circles (yakuman, chiitoitsu form) */
+  /** 大車輪 - 22334455667788 all circles (yakuman, chiitoitsu form) */
   daisharin: boolean;
-  /** 大七星 — Seven pairs of all different honor tiles (yakuman) */
+  /** 大七星 - Seven pairs of all different honor tiles (yakuman) */
   daishichi: boolean;
-  /** 三連刻 — Three triplets of consecutive values in same suit (2 han) */
+  /** 三連刻 - Three triplets of consecutive values in same suit (2 han) */
   sanrenkou: boolean;
-  /** 四連刻 — Four triplets of consecutive values in same suit (yakuman) */
+  /** 四連刻 - Four triplets of consecutive values in same suit (yakuman) */
   suurenkou: boolean;
-  /** 五門斉 — All five categories present: man, pin, sou, wind, dragon (2 han) */
+  /** 五門斉 - All five categories present: man, pin, sou, wind, dragon (2 han) */
   uumensai: boolean;
-  /** 一色三順 — Same three-tile sequence three times in one suit (1 han open, 2 han closed) */
+  /** 一色三順 - Same three-tile sequence three times in one suit (1 han open, 2 han closed) */
   iisousanjun: boolean;
 }
 
@@ -159,13 +159,13 @@ export const DEFAULT_LOCAL_YAKU: LocalYakuConfig = {
 // ─── Rules config ─────────────────────────────────────────────────────────────
 
 export interface RulesConfig {
-  /** Open tanyao (default: true — WRC/Mahjong Soul) */
+  /** Open tanyao (default: true - WRC/Mahjong Soul) */
   kuitan: boolean;
 
-  /** 4h30f or 3h60f rounds up to mangan (default: true — standard Japanese club / Tenhou) */
+  /** 4h30f or 3h60f rounds up to mangan (default: true - standard Japanese club / Tenhou) */
   kiriagemangan: boolean;
 
-  /** Double yakuman for certain yakuman hands (default: false — treat as single) */
+  /** Double yakuman for certain yakuman hands (default: false - treat as single) */
   doubleYakuman: boolean;
 
   /**
@@ -182,7 +182,7 @@ export interface RulesConfig {
    */
   akaDoraCount: 0 | 3 | 4;
 
-  /** Optional local/house yaku — all disabled by default */
+  /** Optional local/house yaku - all disabled by default */
   localYaku?: LocalYakuConfig;
 }
 

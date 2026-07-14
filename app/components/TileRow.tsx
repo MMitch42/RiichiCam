@@ -169,7 +169,7 @@ export default function TileRow({ tiles, onChange, maxTiles, minTiles = 0, label
             const tile = tiles[i];
             if (!tile) {
               // Reserved slot, sized to match a filled tile button so the row's
-              // height/wrap points stay constant as tiles are added — the
+              // height/wrap points stay constant as tiles are added - the
               // palette below never moves.
               return (
                 <div

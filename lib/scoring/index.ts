@@ -172,7 +172,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
     };
 
     // Some seven-pairs shapes (e.g. ryanpeikou) also parse as a standard hand
-    // worth more — score both and keep whichever pays out more.
+    // worth more - score both and keep whichever pays out more.
     if (parsed.standardAlt) {
       const standardResult = scoreStandardInterpretations(
         parsed.standardAlt,
@@ -201,7 +201,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
   const isYakuman = allYaku.some((y) => y.isYakuman);
 
   if (!isYakuman && allYaku.filter((y) => !y.isYakuman).length === 0) {
-    // No yaku — check if dora saves it (no, dora doesn't give yaku)
+    // No yaku - check if dora saves it (no, dora doesn't give yaku)
     // Actually need at least one yaku to win
     return {
       valid: false,

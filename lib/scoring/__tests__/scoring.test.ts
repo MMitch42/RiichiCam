@@ -226,7 +226,7 @@ describe("chiitoitsu", () => {
   });
 
   it("prefers ryanpeikou over chiitoitsu when a seven-pairs shape also forms a higher-scoring standard hand", () => {
-    // 223344m 223344p 55s — parses as 7 pairs (chiitoitsu) AND as
+    // 223344m 223344p 55s - parses as 7 pairs (chiitoitsu) AND as
     // 234m 234m 234p 234p + 55s pair (ryanpeikou + tanyao), which is worth more.
     const hand = makeHand(
       [m(2), m(2), m(3), m(3), m(4), m(4), p(2), p(2), p(3), p(3), p(4), p(4), s(5)],

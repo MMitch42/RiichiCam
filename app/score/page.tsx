@@ -964,7 +964,7 @@ export default function Home() {
                 <>
                   {melds.length === 0 && !meldBuilderActive && (
                     <p className="text-xs" style={{ color: C.textDim }}>
-                      Closed hand — tap below to declare a chi, pon, or kan.
+                      Closed hand: tap below to declare a chi, pon, or kan.
                     </p>
                   )}
                   <MeldBuilder

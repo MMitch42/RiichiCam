@@ -94,7 +94,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     const vW = vid.videoWidth;
     const vH = vid.videoHeight;
     // Use cover scaling (Math.max) so the video fills the container on every
-    // screen ratio — no pillarboxing on wide Android screens. The overlay div
+    // screen ratio - no pillarboxing on wide Android screens. The overlay div
     // will extend beyond the container edges; the container's overflow:hidden
     // clips it cleanly. Section bounding boxes are fractions of the full video
     // frame, so API-side coordinate math is unaffected by display clipping.
@@ -106,7 +106,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
   }, []);
 
   // Lock body scroll while overlay is open. We intentionally avoid position:fixed on
-  // the body — on iOS Safari, fixed children of a fixed body are offset by the body's
+  // the body - on iOS Safari, fixed children of a fixed body are offset by the body's
   // top value, producing a permanent black gap at the top of the camera view.
   useEffect(() => {
     const prevHtmlOverflow = document.documentElement.style.overflow;
@@ -173,7 +173,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     };
     el.addEventListener('touchmove', onMove, { passive: false });
     return () => el.removeEventListener('touchmove', onMove);
-  }, []); // stable — reads only refs
+  }, []); // stable - reads only refs
 
   useEffect(() => {
     const cont = containerRef.current;
@@ -259,7 +259,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     const vid = videoRef.current;
     if (!vid || !vid.videoWidth) return;
 
-    // Allow up to 2048px so 1080p footage isn't downscaled — still well under Vercel's 4.5 MB body limit.
+    // Allow up to 2048px so 1080p footage isn't downscaled - still well under Vercel's 4.5 MB body limit.
     const MAX = 2048;
     const scale = Math.min(1, MAX / Math.max(vid.videoWidth, vid.videoHeight));
     const cW = Math.round(vid.videoWidth * scale);
@@ -269,7 +269,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     canvas.width = cW;
     canvas.height = cH;
     const ctx = canvas.getContext('2d')!;
-    // Mild contrast + brightness boost — significantly helps tile edge detection without
+    // Mild contrast + brightness boost - significantly helps tile edge detection without
     // retraining the model. ctx.filter silently no-ops on browsers that don't support it.
     ctx.filter = 'contrast(1.15) brightness(1.05)';
     ctx.drawImage(vid, 0, 0, cW, cH);
@@ -302,7 +302,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
       {/* overflow:hidden clips the overlay div when it extends beyond the screen
           (which happens with cover-scale on ultra-wide Android landscape screens). */}
       <div ref={containerRef} className="relative w-full h-full" style={{ overflow: 'hidden' }}>
-        {/* Camera feed — cover fills the screen; no pillarboxing on 20:9 Android phones */}
+        {/* Camera feed - cover fills the screen; no pillarboxing on 20:9 Android phones */}
         <video
           ref={videoRef}
           autoPlay
@@ -373,7 +373,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
           </div>
         )}
 
-        {/* Zoom indicator — only on devices with hardware zoom */}
+        {/* Zoom indicator - only on devices with hardware zoom */}
         {ready && hardwareZoom && (
           <div
             className="absolute pointer-events-none flex items-center gap-1.5"
@@ -437,9 +437,9 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
         }}
       >
         {isLandscape ? (
-          /* Landscape: flash | shutter | toggles — all in one row */
+          /* Landscape: flash | shutter | toggles - all in one row */
           <div className="flex items-center w-full">
-            {/* Flash — left side, flex-1 so it's equidistant from shutter as Hand toggle */}
+            {/* Flash - left side, flex-1 so it's equidistant from shutter as Hand toggle */}
             <div className="flex flex-1 justify-end pr-6">
               {torchSupported && (
                 <button
@@ -460,7 +460,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
               )}
             </div>
 
-            {/* Shutter — center */}
+            {/* Shutter - center */}
             <button
               onClick={capture}
               disabled={!ready || !anySectionOn}
@@ -479,7 +479,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
               />
             </button>
 
-            {/* Section toggles — right side, flex-1 so Hand toggle is equidistant from shutter as flash */}
+            {/* Section toggles - right side, flex-1 so Hand toggle is equidistant from shutter as flash */}
             <div className="flex flex-1 justify-start pl-6">
             <div className="flex gap-2">
               {SECTION_ORDER.map((key) => {

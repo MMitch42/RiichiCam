@@ -24,7 +24,7 @@ ${desc[mode]}
 
 ${TILE_NOTATION}
 
-Respond with ONLY valid JSON — no markdown, no explanation:
+Respond with ONLY valid JSON - no markdown, no explanation:
 {"tiles": ["1m", "2p", "3s"]}`;
 }
 
@@ -38,9 +38,9 @@ function buildGuidedPrompt(
     const x2 = Math.round((box.x + box.w) * 100);
     const y2 = Math.round((box.y + box.h) * 100);
     const label =
-      key === 'hand'    ? 'HAND TILES — the 13 closed tiles (do NOT include open melds here)' :
-      key === 'winning' ? 'WINNING TILE — a single tile separate from the hand' :
-                          'DORA / URA DORA INDICATORS — 1–4 indicator tiles';
+      key === 'hand'    ? 'HAND TILES - the 13 closed tiles (do NOT include open melds here)' :
+      key === 'winning' ? 'WINNING TILE - a single tile separate from the hand' :
+                          'DORA / URA DORA INDICATORS - 1–4 indicator tiles';
     regionLines.push(`  - ${label}: x ${x1}%–${x2}%,  y ${y1}%–${y2}%`);
   }
 
@@ -49,11 +49,11 @@ function buildGuidedPrompt(
 Sections visible in the image (as % of image width/height):
 ${regionLines.join('\n')}
 
-Also look for open melds — groups of tiles rotated 90° or clearly separated from the closed hand (called tiles placed face-up). These should NOT be included in the "hand" array.
+Also look for open melds - groups of tiles rotated 90° or clearly separated from the closed hand (called tiles placed face-up). These should NOT be included in the "hand" array.
 
 ${TILE_NOTATION}
 
-Respond with ONLY valid JSON — no markdown, no explanation. Omit sections you cannot clearly see (use [] or null):
+Respond with ONLY valid JSON - no markdown, no explanation. Omit sections you cannot clearly see (use [] or null):
 {
   "hand": ["1m","2p","3s"],
   "winning_tile": "4m",
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'GEMINI_API_KEY is not configured — add it to .env.local' },
+      { error: 'GEMINI_API_KEY is not configured - add it to .env.local' },
       { status: 500 },
     );
   }

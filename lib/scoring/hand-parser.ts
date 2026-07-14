@@ -123,7 +123,7 @@ function determineWait(
 
       if (wv === mid) return "kanchan"; // middle tile → closed wait
       // Penchan (edge wait): the winning tile is the only side that could
-      // complete the partial run — held 1-2 won on 3, or held 8-9 won on 7.
+      // complete the partial run - held 1-2 won on 3, or held 8-9 won on 7.
       if (wv === high && high === 3) return "penchan"; // held 1-2, waited 3
       if (wv === low && low === 7) return "penchan"; // held 8-9, waited 7
       // Any other end completion is a two-sided ryanmen wait.
@@ -134,7 +134,7 @@ function determineWait(
   return "ryanmen"; // fallback
 }
 
-// Special: shanpon — winning tile is a triplet but pair came from the other candidate
+// Special: shanpon - winning tile is a triplet but pair came from the other candidate
 // We need to re-examine: in shanpon the winning tile could be in the "pair" slot
 function buildInterpretations(
   allTiles: Tile[],
@@ -222,7 +222,7 @@ function isKokushi(tiles: Tile[], winningTile: Tile): KokushiInterpretation | nu
   for (const orphan of KOKUSHI_TILES) {
     if (!all14.some((t) => tilesEqual(t, orphan))) return null;
   }
-  // Has all 13 — check for 13-sided wait
+  // Has all 13 - check for 13-sided wait
   const counts = new Map<string, number>();
   for (const t of all14) counts.set(tileKey(t), (counts.get(tileKey(t)) ?? 0) + 1);
   const isThirteenSided = KOKUSHI_TILES.every((orphan) => (counts.get(tileKey(orphan)) ?? 0) >= 1);
@@ -246,7 +246,7 @@ function isChiitoitsu(tiles: Tile[]): ChiitoitsuInterpretation | null {
   }
   const pairs = Array.from(counts.values()).filter((e) => e.count === 2);
   if (pairs.length !== 7) return null;
-  // winningTile — we don't have it here, will be set by caller
+  // winningTile - we don't have it here, will be set by caller
   return null; // handled in parseHand
 }
 

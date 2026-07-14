@@ -130,7 +130,7 @@ export async function POST(request: Request) {
               imageWidth: roboflowData.image?.width,
               imageHeight: roboflowData.image?.height,
             });
-          } catch { /* non-critical — never fail a request over training storage */ }
+          } catch { /* non-critical - never fail a request over training storage */ }
         });
       }
       return NextResponse.json(returnRawPredictions ? { ...result, rawPredictions } : result);
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
           imageWidth: roboflowData.image?.width,
           imageHeight: roboflowData.image?.height,
         });
-      } catch { /* non-critical — never fail a request over training storage */ }
+      } catch { /* non-critical - never fail a request over training storage */ }
     });
   }
 
