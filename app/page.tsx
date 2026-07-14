@@ -1,8 +1,20 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "RiichiCam — Riichi Mahjong Scorer with Camera Detection",
-  description: "Score any riichi mahjong hand in seconds. Scan tiles with your camera or input manually. Calculates all yaku, fu, han, and dealer/non-dealer payments.",
+  title: "RiichiCam — Riichi Mahjong Scorer & Hand Calculator with Camera Detection",
+  description: "Free riichi mahjong hand scorer and scoring calculator. Scan your tiles with your camera or input them manually to get yaku, fu, han, and dealer/non-dealer payments instantly.",
+  keywords: [
+    "mahjong hand scorer",
+    "riichi mahjong scoring",
+    "riichi mahjong calculator",
+    "mahjong scoring calculator",
+    "riichi scoring tool",
+    "mahjong yaku calculator",
+    "japanese mahjong scorer",
+    "mahjong fu calculator",
+    "mahjong hand calculator",
+    "riichi hand scorer",
+  ],
   alternates: { canonical: "https://riichicam.com" },
 };
 
@@ -84,9 +96,64 @@ const FAQ = [
   },
 ];
 
+// Structured data (JSON-LD) so Google can render rich results for the app
+// listing and the FAQ, and better understand what RiichiCam is.
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "@id": "https://riichicam.com/#app",
+      name: "RiichiCam",
+      alternateName: "RiichiCam Riichi Mahjong Scorer",
+      url: "https://riichicam.com",
+      description:
+        "Free riichi mahjong hand scorer and scoring calculator. Scan tiles with your camera or input them manually to calculate yaku, fu, han, and payments.",
+      applicationCategory: "UtilitiesApplication",
+      operatingSystem: "Any (web, iOS, Android)",
+      browserRequirements: "Requires a modern web browser",
+      inLanguage: "en",
+      isAccessibleForFree: true,
+      offers: {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+      },
+      featureList: [
+        "Camera tile detection",
+        "Manual tile input",
+        "All standard yaku and yakuman",
+        "Full fu breakdown",
+        "Tsumo and ron payment tables",
+        "Tenpai detection",
+      ],
+      author: {
+        "@type": "Person",
+        name: "Mitchell Magid",
+      },
+    },
+    {
+      "@type": "FAQPage",
+      "@id": "https://riichicam.com/#faq",
+      mainEntity: FAQ.map((item) => ({
+        "@type": "Question",
+        name: item.q,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.a,
+        },
+      })),
+    },
+  ],
+};
+
 export default function LandingPage() {
   return (
     <main style={{ minHeight: '100vh', background: C.bg, color: C.text, paddingTop: 'env(safe-area-inset-top)' }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+      />
       <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 16px' }}>
 
         {/* ── Nav ─────────────────────────────────────────────────────── */}
@@ -144,8 +211,9 @@ export default function LandingPage() {
             margin: '0 auto 36px',
             maxWidth: 360,
           }}>
-            Scan your tiles with your camera or input them manually.
-            RiichiCam calculates yaku, fu, han, and payments instantly. Free, no account needed.
+            RiichiCam is a free riichi mahjong hand scorer and scoring
+            calculator. Scan your tiles with your camera or input them manually
+            to get yaku, fu, han, and payments instantly. No account needed.
           </p>
           <a
             href="/score"
