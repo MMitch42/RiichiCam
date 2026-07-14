@@ -12,10 +12,23 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "RiichiCam — Riichi Mahjong Scorer with Camera Detection",
-  description: "Score riichi mahjong hands instantly. Scan tiles with your camera or input manually. Calculates all yaku, fu, han, and dealer/non-dealer payments for tsumo and ron.",
+  title: {
+    default: "RiichiCam - Riichi Mahjong Scorer & Hand Calculator with Camera Detection",
+    template: "%s · RiichiCam",
+  },
+  description: "Free riichi mahjong hand scorer and scoring calculator. Scan tiles with your camera or input them manually to calculate all yaku, fu, han, and dealer/non-dealer payments for tsumo and ron.",
+  applicationName: "RiichiCam",
   metadataBase: new URL("https://riichicam.com"),
   manifest: "/manifest.json",
+  keywords: [
+    "mahjong hand scorer",
+    "riichi mahjong scoring",
+    "riichi mahjong calculator",
+    "mahjong scoring calculator",
+    "riichi scoring tool",
+    "mahjong yaku calculator",
+    "japanese mahjong scorer",
+  ],
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",
@@ -24,17 +37,17 @@ export const metadata: Metadata = {
     canonical: "https://riichicam.com",
   },
   openGraph: {
-    title: "RiichiCam — Riichi Mahjong Scorer",
-    description: "Score riichi mahjong hands instantly. Scan tiles with your camera or input manually. Calculates all yaku, fu, han, and payments.",
+    title: "RiichiCam - Riichi Mahjong Scorer & Hand Calculator",
+    description: "Free riichi mahjong hand scorer. Scan tiles with your camera or input them manually to calculate all yaku, fu, han, and payments.",
     url: "https://riichicam.com",
     siteName: "RiichiCam",
     type: "website",
     locale: "en_US",
   },
   twitter: {
-    card: "summary",
-    title: "RiichiCam — Riichi Mahjong Scorer",
-    description: "Score riichi mahjong hands instantly. Camera tile detection, all yaku and fu calculations.",
+    card: "summary_large_image",
+    title: "RiichiCam - Riichi Mahjong Scorer & Hand Calculator",
+    description: "Free riichi mahjong hand scorer with camera tile detection. All yaku, fu, and payment calculations.",
   },
 };
 
