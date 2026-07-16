@@ -27,3 +27,10 @@ next-env.d.ts
 .claude/
 .rocketride/
 .vercel
+
+# tile-extractor working files (large sheets + generated PNGs)
+/tools/tile-extractor/input/
+/tools/tile-extractor/output/
+/tools/tile-extractor/.venv/
+__pycache__/
+*.pyc
