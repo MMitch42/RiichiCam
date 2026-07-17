@@ -30,7 +30,13 @@ next-env.d.ts
 
 # synthetic pipeline (generated artifacts — regenerate, don't commit)
 /datasets/
-synthetic/assets/faces/
+# Face packs are generated; ignore them all EXCEPT the real-set packs, which
+# can only be rebuilt from the committed photos in assets/real_photos/ and are
+# the actual sim-to-real training asset, so they ship in the repo.
+synthetic/assets/faces/*
+!synthetic/assets/faces/numbered1/
+!synthetic/assets/faces/mystic1/
+!synthetic/assets/faces/fullset1/
 __pycache__/
 *.pyc
 .pytest_cache/
