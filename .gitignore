@@ -27,3 +27,10 @@ next-env.d.ts
 .claude/
 .rocketride/
 .vercel
+
+# synthetic pipeline (generated artifacts — regenerate, don't commit)
+/datasets/
+synthetic/assets/faces/
+__pycache__/
+*.pyc
+.pytest_cache/
