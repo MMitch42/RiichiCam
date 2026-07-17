@@ -41,7 +41,7 @@ next-env.d.ts
 synthetic/assets/faces/*
 !synthetic/assets/faces/numbered1/
 !synthetic/assets/faces/mystic1/
-!synthetic/assets/faces/fullset1/
+!synthetic/assets/faces/tray1/
 
 __pycache__/
 *.pyc
