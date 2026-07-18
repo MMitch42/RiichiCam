@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { score } from '@/lib/scoring';
 import { sortTiles } from '@/lib/scoring/tiles';
+import { fillMissingHandWithHaku } from '@/lib/scoring/haku-fallback';
 import type { Hand, Meld, ScoreResult, Tile, SuitedValue, WindValue, LocalYakuConfig } from '@/lib/scoring/types';
 import { DEFAULT_LOCAL_YAKU } from '@/lib/scoring/types';
 import CameraCapture from '../components/CameraCapture';
@@ -684,7 +685,7 @@ export default function Home() {
         return;
       }
       const tiles: Tile[] = data.tiles;
-      setHandTiles(sortTiles(tiles.slice(0, 13)));
+      setHandTiles(sortTiles(fillMissingHandWithHaku(tiles.slice(0, 13))));
       if (tiles.length >= 14) setWinningTile(tiles[13]);
       if (trainingConsent === null && data.rawPredictions) {
         pendingImages.current.push({ base64, mode: 'hand', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
@@ -767,7 +768,7 @@ export default function Home() {
         return;
       }
 
-      if (result.hand?.length > 0) setHandTiles(sortTiles((result.hand as Tile[]).slice(0, 13)));
+      if (result.hand?.length > 0) setHandTiles(sortTiles(fillMissingHandWithHaku((result.hand as Tile[]).slice(0, 13))));
       if (result.winningTile) setWinningTile(result.winningTile as Tile);
       if (result.dora?.length > 0) setDoraIndicatorTiles(sortTiles((result.dora as Tile[]).slice(0, 8)));
       if (result.melds?.length > 0) setMelds(result.melds);
