@@ -649,6 +649,17 @@ export default function Home() {
   }
 
   function handleClear() {
+    // Full reset: everything that describes THIS hand (win type, riichi
+    // family, special conditions) goes back to default, same as honba
+    // already did - "Clear" should mean starting the next hand from
+    // scratch, not leaving the last hand's win-condition toggles set.
+    //
+    // Deliberately NOT reset: seatWind, roundWind, dealer, localYakuConfig.
+    // Those describe the table/session (your seat, the round, house rules),
+    // not this hand - they normally stay constant across many consecutive
+    // hands scored in one sitting, same reason localYakuConfig already
+    // persists. Resetting them here would mean re-entering seat/round wind
+    // on every single hand.
     setHandTiles([]);
     setWinningTile(null);
     setDoraIndicatorTiles([]);
@@ -663,6 +674,17 @@ export default function Home() {
     setDoraPaletteForced(false);
     setLightboxUrl(null);
     setHonba(0);
+    setWinType('tsumo');
+    setRiichi(false);
+    setDoubleRiichi(false);
+    setIppatsu(false);
+    setHaitei(false);
+    setHoutei(false);
+    setRinshan(false);
+    setChankan(false);
+    setRenho(false);
+    setMeldBuilderActive(false);
+    setMeldExternalSelect(null);
   }
 
   async function handleHandCapture(base64: string) {
