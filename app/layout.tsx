@@ -59,7 +59,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Analytics />
         <Script id="sw-register" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js');
+            // Auto-update: when an updated service worker takes control, reload
+            // once so the running page switches to the new build with no user
+            // action. Two guards: __rc_refreshing stops the single reload from
+            // looping, and __rc_hadController skips the harmless first-install
+            // case (controller goes null -> SW on a first visit, which is not
+            // an update and must not trigger a reload).
+            var __rc_refreshing = false;
+            var __rc_hadController = !!navigator.serviceWorker.controller;
+            navigator.serviceWorker.addEventListener('controllerchange', function () {
+              if (!__rc_hadController) { __rc_hadController = true; return; }
+              if (__rc_refreshing) return;
+              __rc_refreshing = true;
+              window.location.reload();
+            });
+            navigator.serviceWorker.register('/sw.js').then(function (reg) {
+              reg.update();
+              // Re-check for a new build when the app is foregrounded (PWA
+              // launch/resume) and hourly while it stays open.
+              document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible') reg.update();
+              });
+              setInterval(function () { reg.update(); }, 60 * 60 * 1000);
+            }).catch(function () {});
           }
         `}</Script>
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-MH0EYQL4VG" strategy="afterInteractive" />

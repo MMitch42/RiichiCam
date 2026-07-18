@@ -1,4 +1,9 @@
-const CACHE = 'riichicam-v3';
+// Bump this string on any deploy that must invalidate the SW's asset cache.
+// Changing sw.js's bytes is what makes the browser install a new worker; the
+// activate handler below then purges every cache except the current one. The
+// app documents are kept fresh independently via Cache-Control (next.config),
+// so code updates don't depend on remembering to bump this.
+const CACHE = 'riichicam-v4';
 const STATIC = [
   // '/' and '/score' intentionally excluded - proxy middleware handles routing and
   // may redirect these URLs. Caching redirect responses for navigation requests
