@@ -27,3 +27,22 @@ next-env.d.ts
 .claude/
 .rocketride/
 .vercel
+
+# tile-extractor working files (large sheets + generated PNGs)
+/tools/tile-extractor/input/
+/tools/tile-extractor/output*/
+/tools/tile-extractor/.venv/
+
+# synthetic pipeline (generated artifacts — regenerate, don't commit)
+/datasets/
+# Face packs are generated; ignore them all EXCEPT the real-set packs, which
+# can only be rebuilt from the committed photos in assets/real_photos/ and are
+# the actual sim-to-real training asset, so they ship in the repo.
+synthetic/assets/faces/*
+!synthetic/assets/faces/numbered1/
+!synthetic/assets/faces/mystic1/
+!synthetic/assets/faces/tray1/
+
+__pycache__/
+*.pyc
+.pytest_cache/
