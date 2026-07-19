@@ -15,7 +15,6 @@ interface ImageItem {
   name: string;
   img: HTMLImageElement;
   onnx?: BackendResult;
-  roboflow?: BackendResult;
 }
 
 function fileToImage(file: File): Promise<HTMLImageElement> {
@@ -26,35 +25,6 @@ function fileToImage(file: File): Promise<HTMLImageElement> {
     img.onerror = reject;
     img.src = url;
   });
-}
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '');
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-async function runRoboflow(file: File): Promise<BackendResult> {
-  const t0 = performance.now();
-  const base64 = await fileToBase64(file);
-  const res = await fetch('/api/detect', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      image: base64,
-      mode: 'hand',
-      save: false,
-      sessionId: 'onnx-debug',
-      returnRawPredictions: true,
-    }),
-  });
-  const data = await res.json();
-  const ms = performance.now() - t0;
-  if (data.error) return { predictions: [], ms, error: data.error };
-  return { predictions: data.rawPredictions ?? [], ms };
 }
 
 async function runOnnx(
@@ -150,22 +120,21 @@ function ResultPanel({ title, result }: { title: string; result?: BackendResult 
 
 export default function OnnxDebugPage() {
   const [modelUrl, setModelUrl] = useState(DEFAULT_MODEL_URL);
-  const [compareRoboflow, setCompareRoboflow] = useState(true);
   const [confidenceThreshold, setConfidenceThreshold] = useState(0.45);
   const [iouThreshold, setIouThreshold] = useState(0.5);
   const [items, setItems] = useState<ImageItem[]>([]);
   const [busy, setBusy] = useState(false);
   // navigator.gpu doesn't exist during SSR, so this is resolved client-side
-  // after mount rather than read directly in the render body — reading it
+  // after mount rather than read directly in the render body. Reading it
   // inline would render "wasm" on the server and "webgpu" on the client,
   // which is a hydration mismatch.
   const [backend, setBackend] = useState<string | null>(null);
   useEffect(() => setBackend(preferredBackend()), []);
 
-  // Warm the model as soon as the page mounts, not on first scan — a real
+  // Warm the model as soon as the page mounts, not on first scan. A real
   // phone test showed ~30s for the first inference (WASM fetch + WebGPU
   // shader compile) vs ~200ms after that. Paying that cost here means the
-  // first REAL scan should already be warm.
+  // first real scan should already be warm.
   const [warmupState, setWarmupState] = useState<'idle' | 'warming' | 'ready' | 'error'>('idle');
   const [warmupMs, setWarmupMs] = useState<number | null>(null);
   useEffect(() => {
@@ -189,13 +158,10 @@ export default function OnnxDebugPage() {
       const item: ImageItem = { id, name: file.name, img };
       setItems((prev) => [...prev, item]);
 
-      const [onnx, roboflow] = await Promise.all([
-        runOnnx(modelUrl, img, confidenceThreshold, iouThreshold),
-        compareRoboflow ? runRoboflow(file) : Promise.resolve(undefined),
-      ]);
+      const onnx = await runOnnx(modelUrl, img, confidenceThreshold, iouThreshold);
 
       setItems((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, onnx, roboflow } : it)),
+        prev.map((it) => (it.id === id ? { ...it, onnx } : it)),
       );
     }
     setBusy(false);
@@ -216,7 +182,7 @@ export default function OnnxDebugPage() {
           {warmupState === 'ready' && `ready (${warmupMs?.toFixed(0)}ms)`}
           {warmupState === 'error' && 'failed'}
         </strong>{' '}
-        — scans below happen after this, so timings reflect a warm session.
+        (scans below happen after this, so timings reflect a warm session)
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '12px 0' }}>
@@ -250,14 +216,6 @@ export default function OnnxDebugPage() {
             onChange={(e) => setIouThreshold(Number(e.target.value))}
           />
         </label>
-        <label style={{ fontSize: 13 }}>
-          <input
-            type="checkbox"
-            checked={compareRoboflow}
-            onChange={(e) => setCompareRoboflow(e.target.checked)}
-          />{' '}
-          Compare against Roboflow (uses your live /api/detect)
-        </label>
       </div>
 
       <input
@@ -279,17 +237,6 @@ export default function OnnxDebugPage() {
                 <BoxCanvas img={item.img} predictions={item.onnx?.predictions ?? []} color="#4ad" />
                 <ResultPanel title="ONNX" result={item.onnx} />
               </div>
-              {compareRoboflow && (
-                <div>
-                  <p style={{ fontSize: 12, color: '#fa4' }}>Roboflow (orange)</p>
-                  <BoxCanvas
-                    img={item.img}
-                    predictions={item.roboflow?.predictions ?? []}
-                    color="#fa4"
-                  />
-                  <ResultPanel title="Roboflow" result={item.roboflow} />
-                </div>
-              )}
             </div>
           </div>
         ))}

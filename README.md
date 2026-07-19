@@ -2,7 +2,7 @@
 
 Riichi mahjong hand scorer with camera tile detection. Scan your hand, confirm conditions, get a full score breakdown: fu, han, yaku list, and payment table.
 
-Built with Next.js App Router, TypeScript, and Tailwind CSS. Deployed on Vercel.
+Built with Next.js App Router, TypeScript, Tailwind CSS, and ONNX Runtime Web for on-device tile detection. Deployed on Vercel.
 
 **[Live app](http://riichicam.com) · [Give feedback](mailto:support.riichicam@gmail.com?subject=RiichiCam%20Feedback)**
 
@@ -11,7 +11,7 @@ Built with Next.js App Router, TypeScript, and Tailwind CSS. Deployed on Vercel.
 ## Features
 
 - **Guided scan:** one shot captures hand, winning tile, and dora/ura dora simultaneously using bounding box overlays
-- **Camera detection:** Roboflow computer vision model detects tiles from a photo; individual scans also supported for hand and dora separately
+- **Camera detection:** on-device object detection model (ONNX Runtime Web, WebGPU with a WASM fallback) detects tiles from a photo; your images never leave your device. Individual scans also supported for hand and dora separately
 - **Flash toggle:** torch on/off button in the guided camera overlay (on supported devices)
 - **Manual input:** tap tiles from the full palette if preferred, including red 5 (aka dora) variants
 - **Meld support:** declare chi, pon, and kan; kan auto-fills the 4th tile if you have 3 in hand
@@ -57,7 +57,7 @@ const result: ScoreResult = score(hand, { kuitan: false, kiriagemangan: true });
 | `doubleWindPairFu` | `4` | Mahjong Soul default |
 | `akaDoraCount` | `3` | One per suit |
 
-780 tests via Vitest.
+113 tests via Vitest, covering scoring, fu/points, and on-device detection (preprocessing, NMS, decoding).
 
 ---
 
@@ -67,18 +67,32 @@ const result: ScoreResult = score(hand, { kuitan: false, kiriagemangan: true });
 npm install
 npm run dev      # http://localhost:3000
 npm run build    # production build
-npm test         # scoring engine tests (vitest)
+npm test         # test suite (vitest)
 ```
 
-Copy `.env.example` to `.env.local` and fill in your keys:
+`npm install` also copies the ONNX Runtime Web WASM/WebGPU binaries into
+`public/ort/` (see `scripts/copy-onnx-runtime.js`); that folder is generated,
+not committed.
+
+The detection model itself is committed at `public/models/tile-detector.onnx`
+(a YOLO11 model exported to ONNX). To swap in a different export, replace
+that file and update `DEFAULT_MODEL_URL` in `lib/detection/onnx-detector.ts`
+if the filename changes; the class order it outputs must match
+`CLASS_NAMES` in `lib/detection/tile-classes.ts` exactly, or detections will
+be silently mislabeled.
+
+Copy `.env.example` to `.env.local` if you want the optional pieces:
 
 ```
-ROBOFLOW_API_KEY=your_key_here
+GEMINI_API_KEY=
+BLOB_READ_WRITE_TOKEN=
 ```
 
-The active detection model is at `detect.roboflow.com/riichicam/3`. To switch versions, change the number in `app/api/detect/route.ts`.
-
-A Gemini-based vision pipeline is preserved at `app/api/detect-gemini/route.ts` as a drop-in alternative (requires `GEMINI_API_KEY`).
+A Gemini-based vision pipeline is preserved at `app/api/detect-gemini/route.ts`
+as a drop-in alternative, not wired into the main flow (requires
+`GEMINI_API_KEY`). `BLOB_READ_WRITE_TOKEN` enables optional training-data
+image storage via Vercel Blob (`/api/save-training`), gated behind user
+consent in the app.
 
 ---
 
@@ -89,9 +103,11 @@ app/
   page.tsx                      # main UI: tile input, conditions, score display
   layout.tsx                    # root layout
   globals.css                   # design tokens (dark slate + gold)
+  score/page.tsx                # scanning + scoring flow, on-device detection wiring
+  debug/onnx/page.tsx            # internal-only harness for testing the detector directly
   api/
-    detect/route.ts             # active inference route (Roboflow)
-    detect-gemini/route.ts      # alternative inference route (Gemini)
+    detect-gemini/route.ts       # alternative inference route (Gemini), not wired into the main flow
+    save-training/route.ts       # optional training-data image storage (Vercel Blob)
   components/
     CameraCapture.tsx           # scan button + camera/library/paste menu
     GuidedCapture.tsx           # full-screen guided scan overlay with section boxes
@@ -106,10 +122,21 @@ lib/scoring/
   yaku.ts                       # detectYaku() + detectYakuman()
   fu.ts                         # calculateFu()
   points.ts                     # calculatePoints(), payment table
-  roboflow-parser.ts            # Roboflow label -> Tile mapping
+  roboflow-parser.ts            # detection label -> Tile mapping (name is historical; used by the on-device path too)
   gemini-parser.ts              # Gemini response -> Tile mapping
   __tests__/
-    scoring.test.ts             # 780 tests
+    scoring.test.ts
+lib/detection/
+  onnx-detector.ts              # session loading, warm-up, preprocessing, inference
+  decode-yolo-output.ts         # raw model output -> predictions (confidence filter, class mapping)
+  nms.ts                        # non-max suppression
+  letterbox.ts                  # image resize/pad math for model input
+  sections.ts                   # buckets predictions into hand/winning/dora for guided scan
+  tile-classes.ts               # the model's class index -> label order (must match the export exactly)
+  on-device.ts                  # detectIndividual/detectGuided, the public entry points /score calls
+  __tests__/
+scripts/
+  copy-onnx-runtime.js          # copies ONNX Runtime Web's wasm/webgpu files into public/ort/ on install
 ```
 
 ---
@@ -119,4 +146,4 @@ lib/scoring/
 **Tile graphics:** [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles).
 SVG tile images used in the tile picker and score display. Released into the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-**Detection dataset:** Mahjong tile dataset sourced via [Roboflow Universe](https://universe.roboflow.com), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+**Detection dataset:** the on-device model was trained on a mahjong tile dataset originally sourced via [Roboflow Universe](https://universe.roboflow.com), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Detection itself runs entirely on-device; no third-party inference service is used.

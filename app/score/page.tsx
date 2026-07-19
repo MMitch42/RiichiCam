@@ -567,29 +567,28 @@ export default function Home() {
 
   // ── On-device detection warm-up ───────────────────────────────────────────
   // Real-device measurement: first inference in a session costs ~30s (WASM
-  // fetch + WebGPU shader compile), every inference after that ~200ms --
-  // faster than the Roboflow round-trip. Kicking this off as soon as the
-  // page mounts (rather than lazily on first scan) means that cost is almost
-  // always hidden behind however long the user spends framing their photo.
-  // (Tried triggering this even earlier, from the root layout, so it'd also
-  // cover time spent on the landing page -- reverted: onnxruntime-web is
-  // heavy enough that a static import in the layout put it in every page's
-  // critical bundle, including pages that never touch detection at all, and
-  // next/dynamic's ssr:false didn't actually get Turbopack to split it back
-  // out. Not worth that cost for a marginal head start when /score is
-  // typically the very next page anyway.) ensureWarmedUp is idempotent, so
-  // this is also safe against React StrictMode's double-effect-invocation
-  // in dev.
+  // fetch + WebGPU shader compile), every inference after that ~200ms.
+  // Kicking this off as soon as the page mounts (rather than lazily on
+  // first scan) means that cost is almost always hidden behind however long
+  // the user spends framing their photo. (Tried triggering this even
+  // earlier, from the root layout, so it'd also cover time spent on the
+  // landing page -- reverted: onnxruntime-web is heavy enough that a static
+  // import in the layout put it in every page's critical bundle, including
+  // pages that never touch detection at all, and next/dynamic's ssr:false
+  // didn't actually get Turbopack to split it back out. Not worth that cost
+  // for a marginal head start when /score is typically the very next page
+  // anyway.) ensureWarmedUp is idempotent, so this is also safe against
+  // React StrictMode's double-effect-invocation in dev.
   //
   // Three states, not a boolean -- 'warming' actively blocks scanning (with
-  // an explanation) rather than silently routing to Roboflow, since the
-  // plan is to stop depending on Roboflow soon and it shouldn't be the
-  // routine path for "hasn't warmed up yet". But a genuine warm-up FAILURE
-  // (unsupported browser, model fetch failure) must still leave scanning
-  // usable -- 'failed' unblocks the UI same as 'ready' does, just with
-  // onDeviceReady staying false so capture handlers fall back to Roboflow
-  // exactly like they already do. Only the active wait blocks; a resolved
-  // outcome (either way) never leaves a user stuck staring at a message.
+  // an explanation) rather than leaving the UI silently unusable, since
+  // there's no server-side fallback to lean on anymore. A genuine warm-up
+  // FAILURE (unsupported browser, model fetch failure) must still leave
+  // scanning usable -- 'failed' unblocks the UI same as 'ready' does, just
+  // with onDeviceReady staying false so detectIndividual/detectGuided
+  // return a clear "enter manually" error instead of attempting a doomed
+  // on-device call. Only the active wait blocks; a resolved outcome
+  // (either way) never leaves a user stuck staring at a message.
   const [warmupState, setWarmupState] = useState<'warming' | 'ready' | 'failed'>('warming');
   const onDeviceReady = warmupState === 'ready';
   // The ~30s figure only applies to a genuinely cold load (no cached model/

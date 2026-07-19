@@ -104,13 +104,8 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>5. Third-party services</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Roboflow</strong>: Primary tile detection inference. Images sent for
-          detection are subject to{" "}
-          <a href="https://roboflow.com/privacy" style={s.a}>Roboflow's privacy policy</a>.
-        </li>
-        <li>
-          <strong>Google Gemini</strong>: Fallback tile detection. Subject to{" "}
-          <a href="https://policies.google.com/privacy" style={s.a}>Google's privacy policy</a>.
+          <strong>On-device detection</strong>: Tile detection runs directly in your
+          browser. Your photo is never sent to a server for detection.
         </li>
         <li>
           <strong>Vercel</strong>: Hosting, serverless functions, Blob storage, and
