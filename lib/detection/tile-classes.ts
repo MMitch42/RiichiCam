@@ -1,13 +1,22 @@
 // Fixed class-index order the ONNX model's output channels correspond to.
-// Mirrors `synthetic/tiles.py::CLASS_NAMES` in the (now private) training
-// pipeline repo — that ordering is baked into the exported model's weights,
-// so it must stay in this exact order regardless of what's convenient here.
+// This is NOT the (now private) training pipeline's synthetic/tiles.py
+// order (grouped by suit, aka last) — this specific model was trained from
+// a Roboflow-exported dataset, and Roboflow's default data.yaml generation
+// sorts class names alphabetically as plain strings. Confirmed directly
+// against the trained checkpoint's `model.names` (ultralytics YOLO), not
+// assumed — a wrong guess here would silently mislabel every detection
+// since both orderings have exactly 37 classes, so a count check alone
+// can't catch it.
 export const CLASS_NAMES = [
-  '1m', '2m', '3m', '4m', '5m', '6m', '7m', '8m', '9m',
-  '1p', '2p', '3p', '4p', '5p', '6p', '7p', '8p', '9p',
-  '1s', '2s', '3s', '4s', '5s', '6s', '7s', '8s', '9s',
-  '1z', '2z', '3z', '4z', '5z', '6z', '7z',
-  '5mr', '5pr', '5sr',
+  '1m', '1p', '1s', '1z',
+  '2m', '2p', '2s', '2z',
+  '3m', '3p', '3s', '3z',
+  '4m', '4p', '4s', '4z',
+  '5m', '5mr', '5p', '5pr', '5s', '5sr', '5z',
+  '6m', '6p', '6s', '6z',
+  '7m', '7p', '7s', '7z',
+  '8m', '8p', '8s',
+  '9m', '9p', '9s',
 ] as const;
 
 export type TileClassName = (typeof CLASS_NAMES)[number];
