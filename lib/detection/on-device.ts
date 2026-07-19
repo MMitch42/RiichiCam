@@ -5,20 +5,24 @@ import type { Tile } from '../scoring/types';
 import { detectTiles } from './onnx-detector';
 import { splitBySection, type SectionBox } from './sections';
 
-// Wraps the on-device detector with the exact request/response contract
-// app/api/detect/route.ts already has, so /score's capture handlers can swap
-// their fetch('/api/detect') call for one of these without touching any
-// downstream state-setting logic. On-device is attempted only when
-// `onDeviceReady` is true (the caller should gate this on a completed
-// warm-up — attempting it while cold would make the user pay the ~30s
-// first-run cost synchronously) and falls back to the same Roboflow request
-// used today on ANY thrown error (unsupported backend, model fetch failure,
-// unexpected runtime error) so a bad on-device run never dead-ends the user.
-// A legitimate detection result (e.g. zero tiles found) is NOT treated as a
-// failure to fall back from -- that's a normal outcome either backend could
-// produce for a bad photo, so retrying it against Roboflow would just burn
-// an API call for the same likely answer while working against the reason
-// we're moving off it.
+// Wraps the on-device detector with the same response contract the old
+// Roboflow-backed /api/detect route had, so /score's capture handlers didn't
+// need to change their downstream state-setting logic when this replaced
+// that fetch call. On-device is attempted only when `onDeviceReady` is true
+// (the caller gates this on a completed warm-up — attempting it while cold
+// would make the user pay the ~30s first-run cost synchronously, and /score
+// already blocks scanning entirely during that window so this case mostly
+// means warm-up ended in 'failed', not 'warming').
+//
+// There is deliberately no server-side fallback anymore. Roboflow used to
+// catch on-device failures here; once the Roboflow account is gone, calling
+// it would just be a network request to a dead endpoint. Both "not ready"
+// and "threw during the on-device attempt" now return the same clear,
+// actionable error instead, pointing at manual entry -- a real, already-
+// built feature -- rather than failing silently or throwing an
+// unhandled error at the caller.
+const DETECTION_UNAVAILABLE_ERROR =
+  "On-device detection isn't available right now. Please enter your hand manually.";
 
 export type DetectError = { error: string };
 
@@ -85,52 +89,35 @@ export interface IndividualDetectParams {
 export async function detectIndividual(
   params: IndividualDetectParams,
 ): Promise<IndividualDetectResult | DetectError> {
-  if (params.onDeviceReady) {
-    try {
-      const img = await base64ToImage(params.base64);
-      const rawPredictions = await detectTiles(params.modelUrl, img, img.naturalWidth, img.naturalHeight);
-      const tiles = parsePredictions(rawPredictions);
-
-      if (tiles.length < 1) {
-        return { error: 'No tiles detected. Try better lighting or a closer shot.' };
-      }
-      if (tiles.length > 18) {
-        return { error: 'Too many tiles detected. Try scanning hand and dora separately.' };
-      }
-
-      if (params.save) {
-        saveTrainingImageOnDevice(
-          params.base64, params.mode, params.sessionId, rawPredictions, img.naturalWidth, img.naturalHeight,
-        );
-      }
-
-      return {
-        tiles,
-        rawPredictions: params.returnRawPredictions ? rawPredictions : undefined,
-        usedOnDevice: true,
-      };
-    } catch {
-      // Falls through to the Roboflow request below.
-    }
+  if (!params.onDeviceReady) {
+    return { error: DETECTION_UNAVAILABLE_ERROR };
   }
 
   try {
-    const res = await fetch('/api/detect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image: params.base64,
-        mode: params.mode,
-        save: params.save,
-        sessionId: params.sessionId,
-        returnRawPredictions: params.returnRawPredictions,
-      }),
-    });
-    const data = await res.json();
-    if (data.error) return { error: data.error };
-    return { tiles: data.tiles, rawPredictions: data.rawPredictions, usedOnDevice: false };
+    const img = await base64ToImage(params.base64);
+    const rawPredictions = await detectTiles(params.modelUrl, img, img.naturalWidth, img.naturalHeight);
+    const tiles = parsePredictions(rawPredictions);
+
+    if (tiles.length < 1) {
+      return { error: 'No tiles detected. Try better lighting or a closer shot.' };
+    }
+    if (tiles.length > 18) {
+      return { error: 'Too many tiles detected. Try scanning hand and dora separately.' };
+    }
+
+    if (params.save) {
+      saveTrainingImageOnDevice(
+        params.base64, params.mode, params.sessionId, rawPredictions, img.naturalWidth, img.naturalHeight,
+      );
+    }
+
+    return {
+      tiles,
+      rawPredictions: params.returnRawPredictions ? rawPredictions : undefined,
+      usedOnDevice: true,
+    };
   } catch {
-    return { error: 'Detection failed. Check your connection and try again.' };
+    return { error: DETECTION_UNAVAILABLE_ERROR };
   }
 }
 
@@ -148,52 +135,27 @@ export interface GuidedDetectParams {
 export async function detectGuided(
   params: GuidedDetectParams,
 ): Promise<GuidedDetectResult | DetectError> {
-  if (params.onDeviceReady) {
-    try {
-      const img = await base64ToImage(params.base64);
-      const rawPredictions = await detectTiles(params.modelUrl, img, img.naturalWidth, img.naturalHeight);
-      const split = splitBySection(rawPredictions, params.sections, img.naturalWidth, img.naturalHeight);
-
-      if (params.save) {
-        saveTrainingImageOnDevice(
-          params.base64, 'guided', params.sessionId, rawPredictions, img.naturalWidth, img.naturalHeight,
-        );
-      }
-
-      return {
-        ...split,
-        rawPredictions: params.returnRawPredictions ? rawPredictions : undefined,
-        usedOnDevice: true,
-      };
-    } catch {
-      // Falls through to the Roboflow request below.
-    }
+  if (!params.onDeviceReady) {
+    return { error: DETECTION_UNAVAILABLE_ERROR };
   }
 
   try {
-    const res = await fetch('/api/detect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image: params.base64,
-        mode: 'guided',
-        sections: params.sections,
-        isLandscape: params.isLandscape,
-        save: params.save,
-        sessionId: params.sessionId,
-        returnRawPredictions: params.returnRawPredictions,
-      }),
-    });
-    const result = await res.json();
-    if (result.error) return { error: result.error };
+    const img = await base64ToImage(params.base64);
+    const rawPredictions = await detectTiles(params.modelUrl, img, img.naturalWidth, img.naturalHeight);
+    const split = splitBySection(rawPredictions, params.sections, img.naturalWidth, img.naturalHeight);
+
+    if (params.save) {
+      saveTrainingImageOnDevice(
+        params.base64, 'guided', params.sessionId, rawPredictions, img.naturalWidth, img.naturalHeight,
+      );
+    }
+
     return {
-      hand: result.hand ?? [],
-      winningTile: result.winningTile ?? null,
-      dora: result.dora ?? [],
-      rawPredictions: result.rawPredictions,
-      usedOnDevice: false,
+      ...split,
+      rawPredictions: params.returnRawPredictions ? rawPredictions : undefined,
+      usedOnDevice: true,
     };
   } catch {
-    return { error: 'Detection failed. Check your connection and try again.' };
+    return { error: DETECTION_UNAVAILABLE_ERROR };
   }
 }
