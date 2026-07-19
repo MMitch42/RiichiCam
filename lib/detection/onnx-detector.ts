@@ -111,3 +111,24 @@ export async function detectTiles(
 export function preferredBackend(): 'webgpu' | 'wasm' {
   return typeof navigator !== 'undefined' && 'gpu' in navigator ? 'webgpu' : 'wasm';
 }
+
+// Measured on a real phone: first inference in a session took ~30s (WASM
+// runtime fetch + WebGPU shader compilation), every inference after that
+// took ~200ms — faster than the Roboflow round-trip. That one-time cost is
+// real but front-loadable: call this as soon as the scan UI mounts (before
+// the user has taken a photo), not lazily on the first real detectTiles()
+// call, so it's hidden behind however long the user spends framing their
+// hand instead of sitting in front of a spinner after they press capture.
+// Runs a real (dummy) inference, not just session creation — WebGPU shader
+// compilation is triggered by actually executing the graph's ops, not by
+// loading the model file.
+export async function warmUp(modelUrl: string): Promise<void> {
+  const session = await loadSession(modelUrl);
+  const dummy = new ort.Tensor(
+    'float32',
+    new Float32Array(3 * MODEL_INPUT_SIZE * MODEL_INPUT_SIZE),
+    [1, 3, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE],
+  );
+  const inputName = session.inputNames[0];
+  await session.run({ [inputName]: dummy });
+}

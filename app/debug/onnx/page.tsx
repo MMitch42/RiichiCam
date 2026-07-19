@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { detectTiles, preferredBackend } from '@/lib/detection/onnx-detector';
+import { detectTiles, preferredBackend, warmUp } from '@/lib/detection/onnx-detector';
 import type { RawPrediction } from '@/lib/scoring/roboflow-parser';
 
 const DEFAULT_MODEL_URL = '/models/tile-detector.onnx';
@@ -164,6 +164,23 @@ export default function OnnxDebugPage() {
   const [backend, setBackend] = useState<string | null>(null);
   useEffect(() => setBackend(preferredBackend()), []);
 
+  // Warm the model as soon as the page mounts, not on first scan — a real
+  // phone test showed ~30s for the first inference (WASM fetch + WebGPU
+  // shader compile) vs ~200ms after that. Paying that cost here means the
+  // first REAL scan should already be warm.
+  const [warmupState, setWarmupState] = useState<'idle' | 'warming' | 'ready' | 'error'>('idle');
+  const [warmupMs, setWarmupMs] = useState<number | null>(null);
+  useEffect(() => {
+    setWarmupState('warming');
+    const t0 = performance.now();
+    warmUp(modelUrl)
+      .then(() => {
+        setWarmupMs(performance.now() - t0);
+        setWarmupState('ready');
+      })
+      .catch(() => setWarmupState('error'));
+  }, [modelUrl]);
+
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
     setBusy(true);
@@ -192,6 +209,16 @@ export default function OnnxDebugPage() {
       <p style={{ fontSize: 13, opacity: 0.7 }}>
         Not linked from the app; internal testing only. Preferred backend for this
         device: <strong>{backend ?? '…'}</strong>.
+      </p>
+      <p style={{ fontSize: 13, opacity: 0.7 }}>
+        Model warm-up:{' '}
+        <strong>
+          {warmupState === 'idle' && '—'}
+          {warmupState === 'warming' && 'loading…'}
+          {warmupState === 'ready' && `ready (${warmupMs?.toFixed(0)}ms)`}
+          {warmupState === 'error' && 'failed'}
+        </strong>{' '}
+        — scans below happen after this, so timings reflect a warm session.
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '12px 0' }}>
