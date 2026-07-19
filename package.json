@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "node scripts/copy-onnx-runtime.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -14,6 +15,7 @@
     "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.3.3",
     "next": "^16.2.4",
+    "onnxruntime-web": "^1.27.0",
     "react": "^18",
     "react-dom": "^18"
   },
