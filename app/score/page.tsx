@@ -963,8 +963,7 @@ export default function Home() {
               style={{ width: 16, height: 16, border: `2px solid ${C.goldBorderSm}`, borderTopColor: C.gold }}
             />
             <p className="text-xs leading-relaxed" style={{ color: C.textSec }}>
-              Preparing your scanner — usually takes about 30 seconds the first time.
-              This should only happen once.
+              Preparing your scanner. This one-time load usually takes about 30 seconds.
             </p>
           </div>
         )}
