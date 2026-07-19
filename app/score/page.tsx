@@ -14,7 +14,7 @@ import TileGraphic from '../components/TileGraphic';
 import MeldBuilder from '../components/MeldBuilder';
 import TrainingConsentBanner from '../components/TrainingConsentBanner';
 import PWAInstallBanner from '../components/PWAInstallBanner';
-import { warmUp, DEFAULT_MODEL_URL } from '@/lib/detection/onnx-detector';
+import { ensureWarmedUp, DEFAULT_MODEL_URL } from '@/lib/detection/onnx-detector';
 import { detectIndividual, detectGuided } from '@/lib/detection/on-device';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -564,15 +564,22 @@ export default function Home() {
   // fetch + WebGPU shader compile), every inference after that ~200ms --
   // faster than the Roboflow round-trip. Kicking this off as soon as the
   // page mounts (rather than lazily on first scan) means that cost is almost
-  // always hidden behind however long the user spends framing their photo,
-  // and it also means the fallback logic below never has to make a user
-  // wait out a cold on-device run: capture handlers only attempt on-device
-  // once this has resolved to 'ready', otherwise they go straight to
-  // Roboflow, exactly like they do today.
+  // always hidden behind however long the user spends framing their photo.
+  // (Tried triggering this even earlier, from the root layout, so it'd also
+  // cover time spent on the landing page -- reverted: onnxruntime-web is
+  // heavy enough that a static import in the layout put it in every page's
+  // critical bundle, including pages that never touch detection at all, and
+  // next/dynamic's ssr:false didn't actually get Turbopack to split it back
+  // out. Not worth that cost for a marginal head start when /score is
+  // typically the very next page anyway.) ensureWarmedUp is idempotent, so
+  // this is also safe against React StrictMode's double-effect-invocation
+  // in dev. Capture handlers only attempt on-device once this resolves to
+  // true -- otherwise they go straight to Roboflow, exactly like they do
+  // today, so a user can never get stuck waiting out a cold on-device run.
   const [onDeviceReady, setOnDeviceReady] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    warmUp(DEFAULT_MODEL_URL)
+    ensureWarmedUp(DEFAULT_MODEL_URL)
       .then(() => { if (!cancelled) setOnDeviceReady(true); })
       .catch(() => { /* stays false -- every capture handler already falls back to Roboflow */ });
     return () => { cancelled = true; };

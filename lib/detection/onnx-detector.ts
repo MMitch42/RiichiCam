@@ -134,3 +134,15 @@ export async function warmUp(modelUrl: string): Promise<void> {
   const inputName = session.inputNames[0];
   await session.run({ [inputName]: dummy });
 }
+
+let warmupPromise: Promise<void> | null = null;
+
+// Same idempotent-caching shape as loadSession: multiple callers (the
+// app-wide trigger in layout.tsx firing on every page, plus /score's own
+// check) all get the SAME in-flight/completed warm-up rather than each
+// running their own throwaway inference. Without this, warming from two
+// places would pay the dummy-inference cost twice.
+export function ensureWarmedUp(modelUrl: string): Promise<void> {
+  if (!warmupPromise) warmupPromise = warmUp(modelUrl);
+  return warmupPromise;
+}

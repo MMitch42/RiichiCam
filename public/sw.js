@@ -14,10 +14,20 @@ const STATIC = [
   '/icon.svg',
 ];
 
+// The ONNX model (~77MB) is precached separately from STATIC, not added to
+// it: caches.addAll() rejects the whole install if ANY one fetch fails, and
+// gating the entire PWA install on one large, more failure-prone download
+// would mean a flaky connection breaks icons/manifest caching too. This
+// fetch runs in the background and is allowed to fail silently -- if it
+// hasn't finished by the time a page requests it, the fetch handler below
+// still serves it (just without the precache head start).
+const MODEL_URL = '/models/tile-detector.onnx';
+
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE).then((c) => c.addAll(STATIC)).then(() => self.skipWaiting())
   );
+  caches.open(CACHE).then((c) => c.add(MODEL_URL)).catch(() => {});
 });
 
 self.addEventListener('activate', (e) => {
