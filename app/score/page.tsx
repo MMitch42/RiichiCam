@@ -14,6 +14,8 @@ import TileGraphic from '../components/TileGraphic';
 import MeldBuilder from '../components/MeldBuilder';
 import TrainingConsentBanner from '../components/TrainingConsentBanner';
 import PWAInstallBanner from '../components/PWAInstallBanner';
+import { warmUp, DEFAULT_MODEL_URL } from '@/lib/detection/onnx-detector';
+import { detectIndividual, detectGuided } from '@/lib/detection/on-device';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -557,6 +559,25 @@ export default function Home() {
   // ── Result ────────────────────────────────────────────────────────────────
   const [result, setResult] = useState<ScoreResult | null>(null);
 
+  // ── On-device detection warm-up ───────────────────────────────────────────
+  // Real-device measurement: first inference in a session costs ~30s (WASM
+  // fetch + WebGPU shader compile), every inference after that ~200ms --
+  // faster than the Roboflow round-trip. Kicking this off as soon as the
+  // page mounts (rather than lazily on first scan) means that cost is almost
+  // always hidden behind however long the user spends framing their photo,
+  // and it also means the fallback logic below never has to make a user
+  // wait out a cold on-device run: capture handlers only attempt on-device
+  // once this has resolved to 'ready', otherwise they go straight to
+  // Roboflow, exactly like they do today.
+  const [onDeviceReady, setOnDeviceReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    warmUp(DEFAULT_MODEL_URL)
+      .then(() => { if (!cancelled) setOnDeviceReady(true); })
+      .catch(() => { /* stays false -- every capture handler already falls back to Roboflow */ });
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Training data consent ─────────────────────────────────────────────────
   const sessionId = useRef(crypto.randomUUID());
   const [trainingConsent, setTrainingConsent] = useState<'granted' | 'denied' | null>(null);
@@ -696,13 +717,16 @@ export default function Home() {
     setHandImageUrl(`data:image/jpeg;base64,${base64}`);
     setResult(null);
     try {
-      const res = await fetch('/api/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mode: 'hand', save: trainingConsent === 'granted', sessionId: sessionId.current, returnRawPredictions: trainingConsent === null }),
+      const data = await detectIndividual({
+        onDeviceReady,
+        modelUrl: DEFAULT_MODEL_URL,
+        base64,
+        mode: 'hand',
+        save: trainingConsent === 'granted',
+        sessionId: sessionId.current,
+        returnRawPredictions: trainingConsent === null,
       });
-      const data = await res.json();
-      if (data.error) {
+      if ('error' in data) {
         setDetectError(data.error);
         return;
       }
@@ -727,13 +751,16 @@ export default function Home() {
     setDoraPaletteForced(true);
     setDoraImageUrl(`data:image/jpeg;base64,${base64}`);
     try {
-      const res = await fetch('/api/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mode: 'dora', save: trainingConsent === 'granted', sessionId: sessionId.current, returnRawPredictions: trainingConsent === null }),
+      const data = await detectIndividual({
+        onDeviceReady,
+        modelUrl: DEFAULT_MODEL_URL,
+        base64,
+        mode: 'dora',
+        save: trainingConsent === 'granted',
+        sessionId: sessionId.current,
+        returnRawPredictions: trainingConsent === null,
       });
-      const data = await res.json();
-      if (data.error) {
+      if ('error' in data) {
         setDetectError(data.error);
         return;
       }
@@ -770,30 +797,25 @@ export default function Home() {
     }
 
     try {
-      const res = await fetch('/api/detect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image: data.fullImage,
-          mode: 'guided',
-          sections: data.sections,
-          isLandscape: data.isLandscape,
-          save: trainingConsent === 'granted',
-          sessionId: sessionId.current,
-          returnRawPredictions: trainingConsent === null,
-        }),
+      const result = await detectGuided({
+        onDeviceReady,
+        modelUrl: DEFAULT_MODEL_URL,
+        base64: data.fullImage,
+        sections: data.sections,
+        isLandscape: data.isLandscape,
+        save: trainingConsent === 'granted',
+        sessionId: sessionId.current,
+        returnRawPredictions: trainingConsent === null,
       });
-      const result = await res.json();
 
-      if (result.error) {
+      if ('error' in result) {
         setDetectError(result.error);
         return;
       }
 
-      if (result.hand?.length > 0) setHandTiles(sortTiles(fillMissingHandWithHaku((result.hand as Tile[]).slice(0, 13))));
-      if (result.winningTile) setWinningTile(result.winningTile as Tile);
-      if (result.dora?.length > 0) setDoraIndicatorTiles(sortTiles((result.dora as Tile[]).slice(0, 8)));
-      if (result.melds?.length > 0) setMelds(result.melds);
+      if (result.hand.length > 0) setHandTiles(sortTiles(fillMissingHandWithHaku(result.hand.slice(0, 13))));
+      if (result.winningTile) setWinningTile(result.winningTile);
+      if (result.dora.length > 0) setDoraIndicatorTiles(sortTiles(result.dora.slice(0, 8)));
       if (trainingConsent === null && result.rawPredictions) {
         pendingImages.current.push({ base64: data.fullImage, mode: 'guided', predictions: result.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
       }

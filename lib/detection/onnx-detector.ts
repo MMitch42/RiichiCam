@@ -6,6 +6,8 @@ import { computeLetterbox } from './letterbox';
 import { decodeYoloOutput } from './decode-yolo-output';
 import { CLASS_NAMES } from './tile-classes';
 
+export const DEFAULT_MODEL_URL = '/models/tile-detector.onnx';
+
 const MODEL_INPUT_SIZE = 640;
 const PAD_VALUE = 114 / 255; // Ultralytics' default letterbox pad color, normalized
 

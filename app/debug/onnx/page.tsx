@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { detectTiles, preferredBackend, warmUp } from '@/lib/detection/onnx-detector';
+import { detectTiles, preferredBackend, warmUp, DEFAULT_MODEL_URL } from '@/lib/detection/onnx-detector';
 import type { RawPrediction } from '@/lib/scoring/roboflow-parser';
-
-const DEFAULT_MODEL_URL = '/models/tile-detector.onnx';
 
 interface BackendResult {
   predictions: RawPrediction[];
