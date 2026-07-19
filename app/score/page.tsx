@@ -586,10 +586,24 @@ export default function Home() {
   // outcome (either way) never leaves a user stuck staring at a message.
   const [warmupState, setWarmupState] = useState<'warming' | 'ready' | 'failed'>('warming');
   const onDeviceReady = warmupState === 'ready';
+  // The ~30s figure only applies to a genuinely cold load (no cached model/
+  // wasm yet). Once the service worker has precached those, warm-up is a
+  // couple of seconds -- read client-side only (useEffect, not the initial
+  // useState value) so this doesn't cause a server/client hydration
+  // mismatch, same reason the debug harness reads navigator.gpu this way.
+  const [hasWarmedBefore, setHasWarmedBefore] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem('onnxWarmedBefore') === '1') setHasWarmedBefore(true);
+  }, []);
   useEffect(() => {
     let cancelled = false;
     ensureWarmedUp(DEFAULT_MODEL_URL)
-      .then(() => { if (!cancelled) setWarmupState('ready'); })
+      .then(() => {
+        if (!cancelled) {
+          setWarmupState('ready');
+          localStorage.setItem('onnxWarmedBefore', '1');
+        }
+      })
       .catch(() => { if (!cancelled) setWarmupState('failed'); });
     return () => { cancelled = true; };
   }, []);
@@ -962,7 +976,9 @@ export default function Home() {
               style={{ width: 16, height: 16, border: `2px solid ${C.goldBorderSm}`, borderTopColor: C.gold }}
             />
             <p className="text-xs leading-relaxed" style={{ color: C.textSec }}>
-              Preparing your scanner. This one-time load usually takes about 30 seconds.
+              {hasWarmedBefore
+                ? 'Preparing your scanner…'
+                : 'Preparing your scanner. This one-time load usually takes about 30 seconds.'}
             </p>
           </div>
         )}
