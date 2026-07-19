@@ -573,15 +573,24 @@ export default function Home() {
   // out. Not worth that cost for a marginal head start when /score is
   // typically the very next page anyway.) ensureWarmedUp is idempotent, so
   // this is also safe against React StrictMode's double-effect-invocation
-  // in dev. Capture handlers only attempt on-device once this resolves to
-  // true -- otherwise they go straight to Roboflow, exactly like they do
-  // today, so a user can never get stuck waiting out a cold on-device run.
-  const [onDeviceReady, setOnDeviceReady] = useState(false);
+  // in dev.
+  //
+  // Three states, not a boolean -- 'warming' actively blocks scanning (with
+  // an explanation) rather than silently routing to Roboflow, since the
+  // plan is to stop depending on Roboflow soon and it shouldn't be the
+  // routine path for "hasn't warmed up yet". But a genuine warm-up FAILURE
+  // (unsupported browser, model fetch failure) must still leave scanning
+  // usable -- 'failed' unblocks the UI same as 'ready' does, just with
+  // onDeviceReady staying false so capture handlers fall back to Roboflow
+  // exactly like they already do. Only the active wait blocks; a resolved
+  // outcome (either way) never leaves a user stuck staring at a message.
+  const [warmupState, setWarmupState] = useState<'warming' | 'ready' | 'failed'>('warming');
+  const onDeviceReady = warmupState === 'ready';
   useEffect(() => {
     let cancelled = false;
     ensureWarmedUp(DEFAULT_MODEL_URL)
-      .then(() => { if (!cancelled) setOnDeviceReady(true); })
-      .catch(() => { /* stays false -- every capture handler already falls back to Roboflow */ });
+      .then(() => { if (!cancelled) setWarmupState('ready'); })
+      .catch(() => { if (!cancelled) setWarmupState('failed'); });
     return () => { cancelled = true; };
   }, []);
 
@@ -944,6 +953,22 @@ export default function Home() {
           </div>
         </div>
 
+        {warmupState === 'warming' && (
+          <div
+            className="rounded-sm px-4 py-3 flex items-center gap-3 -mx-4"
+            style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}
+          >
+            <div
+              className="flex-shrink-0 rounded-full animate-spin"
+              style={{ width: 16, height: 16, border: `2px solid ${C.goldBorderSm}`, borderTopColor: C.gold }}
+            />
+            <p className="text-xs leading-relaxed" style={{ color: C.textSec }}>
+              Preparing your scanner — usually takes about 30 seconds the first time.
+              This should only happen once.
+            </p>
+          </div>
+        )}
+
         {/* ── Hand scan ─────────────────────────────────────────────────── */}
         <section
           className="rounded-sm p-4 space-y-4"
@@ -982,6 +1007,7 @@ export default function Home() {
             onCapture={handleHandCapture}
             isLoading={isDetectingHand}
             onStartGuided={() => setGuidedOpen(true)}
+            disabled={warmupState === 'warming'}
           />
           {handImageUrl && (
             <div className="flex items-center gap-3">
@@ -1141,6 +1167,7 @@ export default function Home() {
             label="Scan Dora / Ura Dora"
             onCapture={handleDoraCapture}
             isLoading={isDetectingDora}
+            disabled={warmupState === 'warming'}
           />
           {doraImageUrl && (
             <div className="flex items-center gap-3">
