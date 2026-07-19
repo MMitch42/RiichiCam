@@ -18,5 +18,11 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!score|api|_next|icon|manifest|robots|sitemap|favicon|tiles|privacy|sw\\.js).*)'],
+  // Excludes runtime asset paths (ort/models) too, not just pages: this
+  // matcher applies to every request hitting the server, not just page
+  // navigations, so a returning visitor's client-side fetch of the ONNX
+  // runtime or model file would otherwise get redirected to /score exactly
+  // like a page navigation would — silently breaking on-device detection
+  // for any visitor past their very first page view.
+  matcher: ['/((?!score|api|_next|icon|manifest|robots|sitemap|favicon|tiles|privacy|sw\\.js|ort|models|debug).*)'],
 };

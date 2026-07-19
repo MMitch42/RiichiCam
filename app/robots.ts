@@ -5,6 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
+      disallow: "/debug/",
     },
     sitemap: "https://riichicam.com/sitemap.xml",
   };
