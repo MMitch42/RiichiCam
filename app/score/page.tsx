@@ -748,7 +748,6 @@ export default function Home() {
       }
       const tiles: Tile[] = data.tiles;
       setHandTiles(sortTiles(fillMissingHandWithHaku(tiles.slice(0, 13))));
-      if (tiles.length >= 14) setWinningTile(tiles[13]);
       if (trainingConsent === null && data.rawPredictions) {
         pendingImages.current.push({ base64, mode: 'hand', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
       }
