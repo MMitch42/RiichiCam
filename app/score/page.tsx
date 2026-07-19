@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import type { ReactNode } from 'react';
 import { score } from '@/lib/scoring';
 import { sortTiles } from '@/lib/scoring/tiles';
@@ -16,6 +16,12 @@ import TrainingConsentBanner from '../components/TrainingConsentBanner';
 import PWAInstallBanner from '../components/PWAInstallBanner';
 import { ensureWarmedUp, DEFAULT_MODEL_URL } from '@/lib/detection/onnx-detector';
 import { detectIndividual, detectGuided } from '@/lib/detection/on-device';
+
+// useLayoutEffect warns "does nothing on the server" during SSR; this swaps
+// to useEffect there since layout effects are meaningless without a DOM to
+// lay out. Client side, useLayoutEffect is the actual point -- see its call
+// site for why.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -587,13 +593,21 @@ export default function Home() {
   const [warmupState, setWarmupState] = useState<'warming' | 'ready' | 'failed'>('warming');
   const onDeviceReady = warmupState === 'ready';
   // The ~30s figure only applies to a genuinely cold load (no cached model/
-  // wasm yet). Once the service worker has precached those, warm-up is a
-  // couple of seconds -- read client-side only (useEffect, not the initial
-  // useState value) so this doesn't cause a server/client hydration
-  // mismatch, same reason the debug harness reads navigator.gpu this way.
-  const [hasWarmedBefore, setHasWarmedBefore] = useState(false);
-  useEffect(() => {
-    if (localStorage.getItem('onnxWarmedBefore') === '1') setHasWarmedBefore(true);
+  // wasm yet). localStorage can't be read during SSR, so whatever this
+  // defaults to is necessarily what gets server-rendered and briefly shown
+  // before hydration corrects it -- there's no effect-scheduling trick that
+  // avoids that gap entirely (useLayoutEffect only prevents a SECOND flash
+  // after hydration; it can't make hydration itself instant). So default to
+  // 'true' (short message) rather than 'false': repeat visits are the
+  // common case, and this way a returning visitor's message is correct
+  // from the very first paint. The remaining gap only affects genuine
+  // first-time visitors, briefly showing the short message before
+  // upgrading to the fuller explanation -- a much less confusing direction
+  // than confidently claiming "one-time" to someone who's seen this
+  // dozens of times.
+  const [hasWarmedBefore, setHasWarmedBefore] = useState(true);
+  useIsomorphicLayoutEffect(() => {
+    if (localStorage.getItem('onnxWarmedBefore') !== '1') setHasWarmedBefore(false);
   }, []);
   useEffect(() => {
     let cancelled = false;
