@@ -89,20 +89,27 @@ function findGroupings(tiles: Tile[]): TileGroup[][] {
   return results;
 }
 
-// Determine wait type for a given interpretation
-function determineWait(
+// Determine every valid wait type for a given (pair, groups) grouping.
+//
+// A single grouping can be genuinely ambiguous about which wait completed it:
+// e.g. pair+4m5m5m6m6m7m winning on 6m groups as {4m5m6m}+{5m6m7m} either way,
+// but the winning 6m could be "the one that completed 4m5m_" (ryanmen) or
+// "the one that completed 5m_7m" (kanchan) - both are valid readings of the
+// same three-group shape, since the two 6m tiles are otherwise identical.
+// Every group whose tiles contain the winning tile's value is a legitimate
+// candidate, so all of them are returned and the caller scores each as a
+// separate interpretation rather than us guessing which one "wins" here.
+function determineWaits(
   pair: Tile,
   groups: TileGroup[],
   winningTile: Tile,
-): WaitType {
+): WaitType[] {
   // Tanki: winning tile completes the pair
   if (tilesEqual(winningTile, pair)) {
-    // Check if winning tile appears only as pair (not in any mentsu)
-    // We assume here the interpretation is valid
-    return "tanki";
+    return ["tanki"];
   }
 
-  // Find the group containing the winning tile
+  const waits = new Set<WaitType>();
   for (const group of groups) {
     const hasWinner = group.tiles.some((t) => tilesEqual(t, winningTile));
     if (!hasWinner) continue;
@@ -110,7 +117,8 @@ function determineWait(
     if (group.type === "triplet") {
       // Shanpon: completing a shanpon wait (the pair is actually the other shanpon tile)
       // In shanpon, winningTile forms a triplet and pair tile is the "other" candidate
-      return "shanpon";
+      waits.add("shanpon");
+      continue;
     }
 
     if (group.type === "sequence" && isSuited(winningTile)) {
@@ -121,17 +129,18 @@ function determineWait(
         .sort((a, b) => a - b) as number[];
       const [low, mid, high] = vals;
 
-      if (wv === mid) return "kanchan"; // middle tile → closed wait
+      if (wv === mid) waits.add("kanchan"); // middle tile → closed wait
       // Penchan (edge wait): the winning tile is the only side that could
       // complete the partial run - held 1-2 won on 3, or held 8-9 won on 7.
-      if (wv === high && high === 3) return "penchan"; // held 1-2, waited 3
-      if (wv === low && low === 7) return "penchan"; // held 8-9, waited 7
+      else if (wv === high && high === 3) waits.add("penchan"); // held 1-2, waited 3
+      else if (wv === low && low === 7) waits.add("penchan"); // held 8-9, waited 7
       // Any other end completion is a two-sided ryanmen wait.
-      return "ryanmen";
+      else waits.add("ryanmen");
     }
   }
 
-  return "ryanmen"; // fallback
+  if (waits.size === 0) return ["ryanmen"]; // fallback, shouldn't happen for a valid grouping
+  return Array.from(waits);
 }
 
 // Special: shanpon - winning tile is a triplet but pair came from the other candidate
@@ -156,18 +165,24 @@ function buildInterpretations(
 
     const groupings = findGroupings(afterPair2);
     for (const groups of groupings) {
-      const key =
+      const groupsKey =
         tileKey(pairTile) +
         "|" +
         groups
           .map((g) => g.type + g.tiles.map(tileKey).join(","))
           .sort()
           .join("|");
-      if (seen.has(key)) continue;
-      seen.add(key);
 
-      const wait = determineWait(pairTile, groups, winningTile);
-      results.push({ pair: pairTile, groups, waitType: wait, winningTile });
+      // A single (pair, groups) shape can have more than one valid wait-type
+      // reading (see determineWaits) - each is scored as its own interpretation,
+      // so the dedup key must include the wait type, not just the shape.
+      for (const wait of determineWaits(pairTile, groups, winningTile)) {
+        const key = groupsKey + "|" + wait;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        results.push({ pair: pairTile, groups, waitType: wait, winningTile });
+      }
     }
   }
 

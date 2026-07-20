@@ -525,3 +525,29 @@ describe("regression: 234 sanshoku + 1m closed kan + 5sou pair tsumo", () => {
     expect(result.points.total).toBe(8000);
   });
 });
+
+// ─── Multiple valid decompositions: highest-scoring reading wins ────────────
+
+describe("multiple decompositions", () => {
+  it("picks the ryanmen+pinfu reading over the equally-valid kanchan reading", () => {
+    // 3m4m5m5m6m + winning 4m groups as {3m4m5m}+{4m5m6m} either way: the won
+    // 4m can be read as completing the lower group's middle (kanchan, on
+    // 3m_5m) or the upper group's low end (ryanmen, on 5m6m waiting 4m/7m) -
+    // same groups, different wait. The lower group is discovered first by the
+    // grouping search, so a naive "take the first match" reading would lock in
+    // the worse kanchan interpretation and miss the pinfu-eligible ryanmen one
+    // (all sequences, non-yakuhai pair, ryanmen wait) that scores higher.
+    const hand = makeHand(
+      [m(3), m(4), m(5), m(5), m(6), p(2), p(3), p(4), p(9), p(9), s(6), s(7), s(8)],
+      m(4),
+      { winType: "ron", seatWind: "south", roundWind: "east", riichi: true, doraIndicators: [s(1)] },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.yaku.some((y) => y.name === "pinfu")).toBe(true);
+    expect(result.fuBreakdown.waitFu).toBe(0);
+    expect(result.fu).toBe(30);
+    expect(result.totalHan).toBe(2); // riichi + pinfu
+    expect(result.points.total).toBe(2000);
+  });
+});
