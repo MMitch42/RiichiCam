@@ -92,7 +92,7 @@ const FAQ = [
   },
   {
     q: 'Can I use it offline?',
-    a: 'Manual scoring works fully offline. Camera detection requires an internet connection since it uses a cloud AI model.',
+    a: 'Once the page has loaded and the on-device model finishes its one-time setup (about 30 seconds), both camera detection and manual scoring keep working even if you lose signal mid-session, since nothing is sent to a server. RiichiCam is still a web app, though, so you need a connection to load it in the first place. It won\'t open from a cold start in airplane mode.',
   },
 ];
 

@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <Link href="/" style={s.a}>← Back to RiichiCam</Link>
 
       <h1 style={s.h1}>Privacy Policy</h1>
-      <p style={s.meta}>Last updated: May 19, 2026</p>
+      <p style={s.meta}>Last updated: July 21, 2026</p>
 
       <p style={s.p}>
         RiichiCam is a free, open-source riichi mahjong scoring tool. This policy explains what
@@ -34,8 +34,9 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>1. What we collect</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Camera images</strong>: Photos you take are sent to our detection API.
-          They are <em>not stored</em> unless you explicitly opt in (see §3 below).
+          <strong>Camera images</strong>: Tile detection runs entirely on your device, so
+          photos are <em>never sent to our servers</em> unless you explicitly opt in to
+          contribute them as training data (see §3 below).
         </li>
         <li>
           <strong>Training metadata (opt-in only)</strong>: When you consent to contribute
@@ -62,9 +63,9 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>2. Camera access and image processing</h2>
       <p style={s.p}>
         Camera access is requested only when you use the tile-scanning feature and is never
-        active in the background. Each image is sent over HTTPS to our server, forwarded to
-        a tile detection model, and the result is returned to you. The image is then discarded
-        from server memory.
+        active in the background. Tile detection runs locally in your browser using an
+        on-device model; your photo is processed on your device and is never uploaded to our
+        servers unless you opt in to contribute it as training data (see §3).
       </p>
       <p style={s.p}>
         Images may incidentally capture your hands or surroundings. We do not use these images
@@ -122,8 +123,8 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>6. Data retention</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Detection images (not opted-in)</strong>: Discarded immediately after
-          the API response is returned.
+          <strong>Detection images (not opted-in)</strong>: Never leave your device.
+          Detection runs on-device, so there is nothing on our servers to retain.
         </li>
         <li>
           <strong>Training images (opted-in)</strong>: Retained indefinitely for model
