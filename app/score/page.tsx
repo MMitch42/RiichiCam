@@ -620,6 +620,16 @@ export default function Home() {
   }, []);
   useEffect(() => {
     let cancelled = false;
+    // Cap the warm-up so the "getting the scanner ready" banner can never stick
+    // forever if warm-up hangs (rather than resolving or rejecting) - e.g. a
+    // wedged model fetch or a worker that never comes up on some device. On
+    // timeout we fall to 'failed', which clears the banner and routes scans to
+    // the "enter manually" message; on-device detection stays retryable because
+    // the underlying ensureWarmedUp promise keeps running and a later scan can
+    // still await it via ensureReadyForScan.
+    const failTimer = setTimeout(() => {
+      if (!cancelled) setWarmupState((s) => (s === 'warming' ? 'failed' : s));
+    }, 90000);
     ensureWarmedUp(DEFAULT_MODEL_URL)
       .then(() => {
         if (!cancelled) {
@@ -627,24 +637,37 @@ export default function Home() {
           localStorage.setItem('onnxWarmedBefore', '1');
         }
       })
-      .catch(() => { if (!cancelled) setWarmupState('failed'); });
-    return () => { cancelled = true; };
+      .catch(() => { if (!cancelled) setWarmupState('failed'); })
+      .finally(() => clearTimeout(failTimer));
+    return () => { cancelled = true; clearTimeout(failTimer); };
   }, []);
 
-  // A scan tapped before warm-up finishes should WAIT for it, not be blocked.
-  // The scan buttons are no longer disabled during warm-up (that locked out the
-  // whole scan UI for however long warm-up took - up to a couple of minutes on
-  // a budget device - and made the app feel frozen); instead the button shows
-  // its normal loading spinner while this awaits the shared warm-up promise,
-  // then detection proceeds. Manual entry stays available throughout since it
-  // never touches this path. Returns whether on-device detection is usable -
-  // false only when warm-up genuinely failed (unsupported browser / model load
-  // failure), which routes the caller to the "enter manually" message.
+  // A scan tapped before warm-up finishes waits for it rather than being
+  // blocked, but only up to a bound: if warm-up hasn't completed within
+  // SCAN_WARMUP_WAIT_MS the scan gives up and routes to the "enter manually"
+  // message instead of spinning indefinitely. Without this cap a stuck or
+  // pathologically slow warm-up left the scan button spinning forever - the
+  // "scanner stuck loading" symptom. The wait is non-destructive: warm-up keeps
+  // going in the background (warmupState still flips to 'ready' when it lands),
+  // so a later scan tap succeeds. Manual entry stays available throughout since
+  // it never touches this path, and ONNX now runs in a worker (see
+  // onnx-detector.ts) so this wait never freezes the UI.
+  const SCAN_WARMUP_WAIT_MS = 60000;
   async function ensureReadyForScan(): Promise<boolean> {
     if (warmupState === 'ready') return true;
     if (warmupState === 'failed') return false;
-    try { await ensureWarmedUp(DEFAULT_MODEL_URL); return true; }
-    catch { return false; }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('warmup-wait-timeout')), SCAN_WARMUP_WAIT_MS);
+      });
+      await Promise.race([ensureWarmedUp(DEFAULT_MODEL_URL), timeout]);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   // ── Training data consent ─────────────────────────────────────────────────

@@ -12,6 +12,15 @@ const MODEL_INPUT_SIZE = 640;
 const PAD_VALUE = 114 / 255; // Ultralytics' default letterbox pad color, normalized
 
 ort.env.wasm.wasmPaths = '/ort/';
+// Run the wasm backend in a Web Worker instead of the main thread. Session
+// creation and inference for the wasm EP are otherwise synchronous main-thread
+// work: on a budget phone the warm-up alone can peg the UI thread for tens of
+// seconds, during which taps (including "enter manually") don't register and
+// the app looks frozen. Proxying moves that work off the main thread so the
+// page stays interactive throughout warm-up. (WebGPU, when available, already
+// runs its heavy work off-thread; this only affects the wasm fallback path,
+// which is exactly the slow-device case that was freezing.)
+ort.env.wasm.proxy = true;
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null;
 let activeModelUrl: string | null = null;
