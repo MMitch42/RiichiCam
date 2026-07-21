@@ -268,26 +268,38 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     computeOverlay();
   }
 
-  // Divider drag. Pointer events (not touch) so mouse + touch share one path;
-  // stopPropagation keeps the drag from triggering the hand-box toggle onClick
-  // or the outer pinch-zoom handler.
-  function onDividerDown(e: React.PointerEvent) {
-    e.stopPropagation();
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    draggingDivider.current = true;
-  }
-  function onDividerMove(e: React.PointerEvent) {
+  // Divider drag. Move/up are tracked on `window` for the duration of the drag
+  // rather than via setPointerCapture on the handle. setPointerCapture pins the
+  // pointer to the handle element, but the handle MOVES as dividerFrac changes,
+  // and after the first drag the capture would only track the first move of
+  // subsequent drags (the "can't move it a second time" bug). Window listeners
+  // catch every move regardless of what's under the pointer, so the handle
+  // stays draggable as many times as you like. Pointer events (not touch) so
+  // mouse + touch share one path.
+  const onDividerWindowMove = useCallback((e: PointerEvent) => {
     if (!draggingDivider.current) return;
-    e.stopPropagation();
     const rect = handBoxRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0) return;
     const frac = (e.clientX - rect.left) / rect.width;
     setDividerFrac(Math.max(0.25, Math.min(0.9, frac)));
-  }
-  function onDividerUp(e: React.PointerEvent) {
-    e.stopPropagation();
+  }, []);
+  const onDividerWindowUp = useCallback(() => {
     draggingDivider.current = false;
-  }
+    window.removeEventListener('pointermove', onDividerWindowMove);
+    window.removeEventListener('pointerup', onDividerWindowUp);
+    window.removeEventListener('pointercancel', onDividerWindowUp);
+  }, [onDividerWindowMove]);
+  const onDividerDown = useCallback((e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    draggingDivider.current = true;
+    window.addEventListener('pointermove', onDividerWindowMove);
+    window.addEventListener('pointerup', onDividerWindowUp);
+    window.addEventListener('pointercancel', onDividerWindowUp);
+  }, [onDividerWindowMove, onDividerWindowUp]);
+
+  // Detach any lingering window listeners if the overlay unmounts mid-drag.
+  useEffect(() => onDividerWindowUp, [onDividerWindowUp]);
 
   function capture() {
     const vid = videoRef.current;
@@ -467,8 +479,6 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
                       {/* Draggable divider line + grab handle */}
                       <div
                         onPointerDown={onDividerDown}
-                        onPointerMove={onDividerMove}
-                        onPointerUp={onDividerUp}
                         onClick={(e) => e.stopPropagation()}
                         style={{
                           position: 'absolute', top: -8, bottom: -8,
