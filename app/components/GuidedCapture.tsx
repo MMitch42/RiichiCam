@@ -13,12 +13,16 @@ const C = {
 };
 
 export type GuidedSection = 'hand' | 'winning' | 'dora';
+// The capture payload can also carry a derived 'meld' box (the right slice of
+// the hand box, cut at the open/closed divider) - it isn't one of the static
+// overlay boxes/toggles, so it's a wider type than GuidedSection.
+export type CaptureSection = GuidedSection | 'meld';
 
 export interface SectionBox { x: number; y: number; w: number; h: number }
 
 export interface GuidedScanData {
   fullImage: string;
-  sections: Partial<Record<GuidedSection, SectionBox>>;
+  sections: Partial<Record<CaptureSection, SectionBox>>;
   isLandscape: boolean;
 }
 
@@ -71,6 +75,15 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
   });
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
+
+  // ── Open hand (called melds) ────────────────────────────────────────────────
+  // When on, a draggable divider splits the Hand box into a concealed (left)
+  // and a called-melds (right) region. On capture the right slice is sent as a
+  // separate 'meld' box so detection can group those tiles into pon/chi/kan.
+  const [openHand, setOpenHand] = useState(false);
+  const [dividerFrac, setDividerFrac] = useState(0.7); // fraction of hand-box width
+  const handBoxRef = useRef<HTMLDivElement>(null);
+  const draggingDivider = useRef(false);
 
   // ── Zoom ──────────────────────────────────────────────────────────────────────
   // zoomRef / hardwareZoomRef / zoomMaxRef mirror state but are readable inside
@@ -255,6 +268,27 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     computeOverlay();
   }
 
+  // Divider drag. Pointer events (not touch) so mouse + touch share one path;
+  // stopPropagation keeps the drag from triggering the hand-box toggle onClick
+  // or the outer pinch-zoom handler.
+  function onDividerDown(e: React.PointerEvent) {
+    e.stopPropagation();
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    draggingDivider.current = true;
+  }
+  function onDividerMove(e: React.PointerEvent) {
+    if (!draggingDivider.current) return;
+    e.stopPropagation();
+    const rect = handBoxRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return;
+    const frac = (e.clientX - rect.left) / rect.width;
+    setDividerFrac(Math.max(0.25, Math.min(0.9, frac)));
+  }
+  function onDividerUp(e: React.PointerEvent) {
+    e.stopPropagation();
+    draggingDivider.current = false;
+  }
+
   function capture() {
     const vid = videoRef.current;
     if (!vid || !vid.videoWidth) return;
@@ -277,7 +311,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
     const fullImage = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
 
     const boxes = isLandscape ? LANDSCAPE : PORTRAIT;
-    const enabledSections: Partial<Record<GuidedSection, SectionBox>> = {};
+    const enabledSections: Partial<Record<CaptureSection, SectionBox>> = {};
     for (const key of SECTION_ORDER) {
       if (sections[key]) {
         const { x, y, w, h } = boxes[key];
@@ -285,11 +319,53 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
       }
     }
 
+    // Open hand: cut the hand box at the divider into concealed (left) + melds
+    // (right). A dead zone straddles the divider so detection's per-box padding
+    // (±2% of frame) can't place a tile in BOTH regions and double-count it -
+    // the user aligns the divider to the physical gap between their concealed
+    // hand and their called melds, so no real tile should sit in the dead zone.
+    if (openHand && enabledSections.hand) {
+      const hb = boxes.hand;
+      const splitX = hb.x + hb.w * dividerFrac;
+      const dead = hb.w * 0.08; // > 2x PAD(0.02 frame) once scaled by hand width
+      enabledSections.hand = { x: hb.x, y: hb.y, w: (splitX - dead / 2) - hb.x, h: hb.h };
+      enabledSections.meld = { x: splitX + dead / 2, y: hb.y, w: (hb.x + hb.w) - (splitX + dead / 2), h: hb.h };
+    }
+
     onCapture({ fullImage, sections: enabledSections, isLandscape });
   }
 
   const boxes = isLandscape ? LANDSCAPE : PORTRAIT;
   const anySectionOn = SECTION_ORDER.some((k) => sections[k]);
+
+  // "Open" toggle button (called-melds divider). Styled like the section
+  // toggles but in the "called" red; disabled unless the Hand section is on,
+  // since the divider lives inside the hand box.
+  const renderOpenToggle = (minWidth: number) => (
+    <button
+      onClick={() => setOpenHand((v) => !v)}
+      disabled={!sections.hand}
+      className="flex flex-col items-center gap-1 px-3 py-2 rounded transition-all disabled:opacity-40"
+      style={{
+        border:     `1.5px solid ${openHand ? C.red : 'rgba(255,255,255,0.18)'}`,
+        color:      openHand ? C.red : 'rgba(255,255,255,0.3)',
+        background: openHand ? `${C.red}22` : 'rgba(0,0,0,0.35)',
+        minWidth,
+      }}
+    >
+      <span className="text-xs font-bold tracking-widest uppercase">Open</span>
+      <span
+        className="text-xs font-semibold tracking-widest uppercase px-1.5 py-0.5 rounded-sm"
+        style={{
+          background: openHand ? C.red : 'rgba(255,255,255,0.08)',
+          color: openHand ? '#000' : 'rgba(255,255,255,0.3)',
+          fontSize: 9,
+        }}
+      >
+        {openHand ? 'ON' : 'OFF'}
+      </span>
+    </button>
+  );
 
   return (
     <div
@@ -325,6 +401,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
               return (
                 <div
                   key={key}
+                  ref={key === 'hand' ? handBoxRef : undefined}
                   onClick={() => setSections((s) => ({ ...s, [key]: !s[key] }))}
                   style={{
                     position: 'absolute',
@@ -367,6 +444,49 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
                   }}>
                     {box.label} <span style={{ opacity: 0.6, fontWeight: 400 }}>{box.hint}</span>
                   </span>
+
+                  {/* Open-hand divider: only in the hand box, when enabled. */}
+                  {key === 'hand' && openHand && on && (
+                    <>
+                      {/* "Called" tint on the right slice */}
+                      <div style={{
+                        position: 'absolute', top: 0, bottom: 0,
+                        left: `${dividerFrac * 100}%`, right: 0,
+                        background: `${C.red}22`, pointerEvents: 'none',
+                      }} />
+                      {/* "Called" label, top-right */}
+                      <span style={{
+                        position: 'absolute', top: 5, right: 6,
+                        fontSize: 11, fontWeight: 700, letterSpacing: '0.10em',
+                        textTransform: 'uppercase', color: C.red,
+                        textShadow: '0 1px 4px rgba(0,0,0,0.9)', whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                      }}>
+                        Called
+                      </span>
+                      {/* Draggable divider line + grab handle */}
+                      <div
+                        onPointerDown={onDividerDown}
+                        onPointerMove={onDividerMove}
+                        onPointerUp={onDividerUp}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: 'absolute', top: -8, bottom: -8,
+                          left: `${dividerFrac * 100}%`,
+                          width: 32, transform: 'translateX(-16px)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'ew-resize', touchAction: 'none', pointerEvents: 'auto',
+                        }}
+                      >
+                        <div style={{ position: 'absolute', top: 0, bottom: 0, width: 3, background: C.red, borderRadius: 2 }} />
+                        <div style={{
+                          width: 18, height: 28, borderRadius: 4, background: C.red,
+                          border: '2px solid rgba(255,255,255,0.85)',
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
+                        }} />
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
@@ -482,6 +602,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
             {/* Section toggles - right side, flex-1 so Hand toggle is equidistant from shutter as flash */}
             <div className="flex flex-1 justify-start pl-6">
             <div className="flex gap-2">
+              {renderOpenToggle(64)}
               {SECTION_ORDER.map((key) => {
                 const box = boxes[key];
                 const on = sections[key];
@@ -523,6 +644,7 @@ export default function GuidedCapture({ onCapture, onClose }: GuidedCaptureProps
                 Tap to enable / disable sections
               </p>
               <div className="flex gap-2 justify-center">
+                {renderOpenToggle(72)}
                 {SECTION_ORDER.map((key) => {
                   const box = boxes[key];
                   const on = sections[key];

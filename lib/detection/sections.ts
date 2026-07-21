@@ -1,5 +1,6 @@
 import { roboflowLabelToTile, MIN_CONFIDENCE, type RawPrediction } from '../scoring/roboflow-parser';
-import type { Tile } from '../scoring/types';
+import type { Tile, Meld } from '../scoring/types';
+import { groupTilesIntoMelds } from '../scoring/meld-grouping';
 
 export type SectionBox = { x: number; y: number; w: number; h: number };
 
@@ -7,21 +8,41 @@ export interface SplitResult {
   hand: Tile[];
   winningTile: Tile | null;
   dora: Tile[];
+  melds: Meld[];
 }
 
-// Client-side port of app/api/detect/route.ts's splitBySection, so guided-mode
-// detection can run on-device without a server round-trip. Must stay in sync
-// with that copy's behavior (padding, sort order, slice limits) — the two
-// exist separately rather than sharing an import because the route handles
-// the Roboflow-response shape server-side while this runs against whatever
-// image dimensions the caller measured client-side; logic must still match.
+// Soft ceilings on how many tiles a single region can contribute. These are
+// safety valves against a malfunctioning detector returning a flood of noise
+// boxes, NOT real structural limits - a real hand's concealed portion caps at
+// 13 (fewer with melds), dora indicators realistically cap around 5 (1 +
+// one per kan), and called melds cap around 16 (4 melds x 4 tiles for a kan),
+// but none of those real limits should ever be enforced here by silently
+// dropping tiles a user actually scanned. The old `.slice(0, 13)` /
+// `.slice(0, 8)` truncation did exactly that: any extra detection - most
+// commonly called-meld tiles sitting in the same frame as the concealed hand,
+// or overlap with the winning-tile box - vanished with no indication to the
+// user, who'd then have no way to know 2 of their 15 scanned tiles were
+// discarded. The real structural count is enforced downstream, where the
+// hand/melds actually get validated for scoring; this layer's job is just to
+// not lose what the model found.
+const MAX_HAND_TILES = 18;
+const MAX_MELD_TILES = 20;
+const MAX_DORA_TILES = 12;
+
+// Client-side port of the on-device detection pipeline's per-section splitter.
+// Runs entirely in the browser, no server round-trip.
 export function splitBySection(
   predictions: RawPrediction[],
-  sections: Partial<Record<'hand' | 'winning' | 'dora', SectionBox>>,
+  sections: Partial<Record<'hand' | 'winning' | 'dora' | 'meld', SectionBox>>,
   imgWidth: number,
   imgHeight: number,
 ): SplitResult {
-  const result: SplitResult = { hand: [], winningTile: null, dora: [] };
+  const result: SplitResult = { hand: [], winningTile: null, dora: [], melds: [] };
+  // Tiles placed in the melds region that couldn't be resolved into a
+  // complete call fall back into the concealed hand rather than being
+  // dropped (see groupTilesIntoMelds) - merged after the loop so hand/meld
+  // box order in `sections` doesn't matter.
+  let meldLeftovers: Tile[] = [];
 
   const qualified = predictions.filter((p) => p.confidence >= MIN_CONFIDENCE);
 
@@ -44,9 +65,18 @@ export function splitBySection(
       try { tiles.push(roboflowLabelToTile(p.class)); } catch { /* skip unknown labels */ }
     }
 
-    if (key === 'hand') result.hand = tiles.slice(0, 13);
+    if (key === 'hand') result.hand = tiles.slice(0, MAX_HAND_TILES);
     if (key === 'winning') result.winningTile = tiles[0] ?? null;
-    if (key === 'dora') result.dora = tiles.slice(0, 8);
+    if (key === 'dora') result.dora = tiles.slice(0, MAX_DORA_TILES);
+    if (key === 'meld') {
+      const { melds, ungrouped } = groupTilesIntoMelds(tiles.slice(0, MAX_MELD_TILES));
+      result.melds = melds;
+      meldLeftovers = ungrouped;
+    }
+  }
+
+  if (meldLeftovers.length > 0) {
+    result.hand = [...result.hand, ...meldLeftovers].slice(0, MAX_HAND_TILES);
   }
 
   return result;

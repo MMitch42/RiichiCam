@@ -800,8 +800,13 @@ export default function Home() {
         setDetectError(data.error);
         return;
       }
+      // No slice here: a hand photo with called melds visible in frame can
+      // legitimately detect more than 13 tiles (up to ~17 with kans). Showing
+      // everything the model found - rather than silently discarding the
+      // overflow - lets the user move the extra tiles into a declared meld
+      // via "Declare chi / pon / kan" below instead of losing them outright.
       const tiles: Tile[] = data.tiles;
-      setHandTiles(sortTiles(fillMissingHandWithHaku(tiles.slice(0, 13))));
+      setHandTiles(sortTiles(fillMissingHandWithHaku(tiles)));
       if (trainingConsent === null && data.rawPredictions) {
         pendingImages.current.push({ base64, mode: 'hand', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
       }
@@ -834,7 +839,12 @@ export default function Home() {
         setDetectError(data.error);
         return;
       }
-      setDoraIndicatorTiles(sortTiles(data.tiles.slice(0, 8)));
+      // 12 tiles is a generous safety margin over the realistic max (1 initial
+      // + one per kan = 5), not a real limit - just guards against a badly
+      // misframed "dora" photo (e.g. accidentally the whole hand) filling the
+      // row with noise. See lib/detection/sections.ts's MAX_DORA_TILES for the
+      // matching guided-scan ceiling.
+      setDoraIndicatorTiles(sortTiles(data.tiles.slice(0, 12)));
       if (trainingConsent === null && data.rawPredictions) {
         pendingImages.current.push({ base64, mode: 'dora', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
       }
@@ -884,9 +894,18 @@ export default function Home() {
         return;
       }
 
-      if (result.hand.length > 0) setHandTiles(sortTiles(fillMissingHandWithHaku(result.hand.slice(0, 13))));
+      // No re-slicing here: lib/detection/sections.ts already applies its own
+      // generous safety-valve ceilings (and, for the meld region, groups
+      // called-meld tiles out of result.hand before this point) - truncating
+      // again to the old flat 13/8 would just re-lose real detections a hand
+      // with called melds can legitimately produce.
+      if (result.hand.length > 0) setHandTiles(sortTiles(fillMissingHandWithHaku(result.hand)));
       if (result.winningTile) setWinningTile(result.winningTile);
-      if (result.dora.length > 0) setDoraIndicatorTiles(sortTiles(result.dora.slice(0, 8)));
+      if (result.dora.length > 0) setDoraIndicatorTiles(sortTiles(result.dora));
+      if (result.melds.length > 0) {
+        setMelds(result.melds);
+        setHandForceRevision((r) => r + 1);
+      }
       if (trainingConsent === null && result.rawPredictions) {
         pendingImages.current.push({ base64: data.fullImage, mode: 'guided', predictions: result.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
       }
@@ -1095,7 +1114,13 @@ export default function Home() {
 
               {(handScanned || handTiles.length > 0) && (
                 <>
-                  {melds.length === 0 && !meldBuilderActive && (
+                  {handTiles.length + meldTileCount > 13 + numKans ? (
+                    <p className="text-xs" style={{ color: C.red }}>
+                      {handTiles.length + meldTileCount - (13 + numKans)} extra tile
+                      {handTiles.length + meldTileCount - (13 + numKans) === 1 ? '' : 's'} detected.
+                      {!meldBuilderActive ? ' Tap below to declare a chi, pon, or kan for any called melds.' : ''}
+                    </p>
+                  ) : melds.length === 0 && !meldBuilderActive && (
                     <p className="text-xs" style={{ color: C.textDim }}>
                       Closed hand: tap below to declare a chi, pon, or kan.
                     </p>

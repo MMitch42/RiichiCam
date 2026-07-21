@@ -105,7 +105,12 @@ export default function TileRow({ tiles, onChange, maxTiles, minTiles = 0, label
   const effectiveOpen = !readOnly && ((forceOpen && !manuallyClosed) || paletteOpen);
 
   const atMax = maxTiles !== undefined && tiles.length >= maxTiles;
-  const countOk = tiles.length >= minTiles;
+  // A scan can legitimately hand back more tiles than maxTiles (e.g. called
+  // melds sitting in the same frame as the concealed hand, not yet declared) -
+  // that's surfaced as a red count, not by hiding the overflow (see the render
+  // loop below, which always shows every real tile regardless of maxTiles).
+  const overMax = maxTiles !== undefined && tiles.length > maxTiles;
+  const countOk = tiles.length >= minTiles && !overMax;
 
   function isAkaTile(tile: Tile): boolean {
     return tile.suit !== 'honor' && !!tile.isAka;
@@ -165,7 +170,11 @@ export default function TileRow({ tiles, onChange, maxTiles, minTiles = 0, label
 
       {(tiles.length > 0 || (effectiveOpen && maxTiles !== undefined)) && (
         <div className="flex flex-wrap gap-1.5">
-          {(maxTiles !== undefined ? Array.from({ length: maxTiles }, (_, i) => i) : tiles.map((_, i) => i)).map((i) => {
+          {/* Math.max, not maxTiles alone: a scan can hand back more real
+              tiles than maxTiles (see overMax above) - the slot count must
+              never be smaller than tiles.length, or those extra tiles exist
+              in state but are invisible and unremovable here. */}
+          {(maxTiles !== undefined ? Array.from({ length: Math.max(maxTiles, tiles.length) }, (_, i) => i) : tiles.map((_, i) => i)).map((i) => {
             const tile = tiles[i];
             if (!tile) {
               // Reserved slot, sized to match a filled tile button so the row's

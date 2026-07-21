@@ -1,7 +1,7 @@
 'use client';
 
 import { parsePredictions, type RawPrediction } from '../scoring/roboflow-parser';
-import type { Tile } from '../scoring/types';
+import type { Tile, Meld } from '../scoring/types';
 import { detectTiles } from './onnx-detector';
 import { splitBySection, type SectionBox } from './sections';
 
@@ -36,6 +36,7 @@ export interface GuidedDetectResult {
   hand: Tile[];
   winningTile: Tile | null;
   dora: Tile[];
+  melds: Meld[];
   rawPredictions?: RawPrediction[];
   usedOnDevice: boolean;
 }
@@ -101,7 +102,12 @@ export async function detectIndividual(
     if (tiles.length < 1) {
       return { error: 'No tiles detected. Try better lighting or a closer shot.' };
     }
-    if (tiles.length > 18) {
+    // A safety valve against a malfunctioning detection (e.g. an unrelated
+    // photo), not a real hand-size limit. A concealed hand plus called melds
+    // maxes out around 17 physical tiles on the table (13 - 3 per meld,
+    // + 4 per meld, up to 4 melds), so this leaves real headroom above that
+    // rather than sitting right at the ceiling.
+    if (tiles.length > 20) {
       return { error: 'Too many tiles detected. Try scanning hand and dora separately.' };
     }
 
@@ -125,7 +131,7 @@ export interface GuidedDetectParams {
   onDeviceReady: boolean;
   modelUrl: string;
   base64: string;
-  sections: Partial<Record<'hand' | 'winning' | 'dora', SectionBox>>;
+  sections: Partial<Record<'hand' | 'winning' | 'dora' | 'meld', SectionBox>>;
   isLandscape?: boolean;
   save: boolean;
   sessionId: string;
