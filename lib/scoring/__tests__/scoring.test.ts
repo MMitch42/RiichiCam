@@ -551,3 +551,82 @@ describe("multiple decompositions", () => {
     expect(result.points.total).toBe(2000);
   });
 });
+
+// ─── "Ron completes a group" family: the claimed tile is open, not concealed ──
+
+describe("ron on shanpon: completed triplet is open (minko), not concealed", () => {
+  it("dealer ron completing a haku triplet on a double-wind pair = 40 fu, not 50", () => {
+    // 234m 456p 678s (no sanshoku) + east-east pair + haku-haku, ron on haku.
+    // seat=east round=east so the pair is double-wind (+4 fu). The haku triplet
+    // is completed by the ron tile -> minko honor (4 fu), not anko (8 fu).
+    // Real: 30(closed ron) + 4(pair) + 4(minko) = 38 -> 40 fu. The old engine
+    // scored the triplet as anko: 30 + 4 + 8 = 42 -> 50 fu, overpaying.
+    const hand = makeHand(
+      [m(2), m(3), m(4), p(4), p(5), p(6), s(6), s(7), s(8), wind("east"), wind("east"), dragon("haku"), dragon("haku")],
+      dragon("haku"),
+      { winType: "ron", seatWind: "east", roundWind: "east", doraIndicators: [] },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.yaku.some((y) => y.name === "yakuhai")).toBe(true);
+    expect(result.fu).toBe(40);
+    expect(result.totalHan).toBe(1); // yakuhai only
+    expect(result.points.total).toBe(2000); // dealer ron 1 han 40 fu
+  });
+});
+
+describe("open hand won by ron floors to 30 fu (open-pinfu / kuipinfu rule)", () => {
+  it("open tanyao all-sequences ryanmen ron = 30 fu, not 20", () => {
+    // Open (chi 234m), all sequences, valueless 3p pair, ryanmen wait on 6s.
+    // 456 appears in all three suits -> sanshoku (open, 1 han) + tanyao.
+    // No fu source anywhere: base 20 for an open ron, which must floor to 30.
+    const hand = makeHand(
+      [m(4), m(5), m(6), p(4), p(5), p(6), s(4), s(5), p(3), p(3)],
+      s(6),
+      {
+        winType: "ron", seatWind: "south", roundWind: "east", doraIndicators: [],
+        melds: [{ type: "chi", tiles: [m(2), m(3), m(4)] }],
+      },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.fu).toBe(30);
+    expect(result.totalHan).toBe(2); // tanyao + sanshoku (open)
+    expect(result.points.total).toBe(2000); // 2 han 30 fu non-dealer ron
+  });
+});
+
+describe("suuankou requires the fourth triplet to be concealed", () => {
+  it("ron on a shanpon completing the 4th triplet = sanankou + toitoi, NOT suuankou", () => {
+    // 111m 999m 555p + 33s/22s two pairs; ron on 3s completes 333s via shanpon.
+    // That triplet is open, leaving three concealed -> sanankou + toitoi (4 han,
+    // mangan by fu), not the four-concealed-triplet yakuman.
+    const hand = makeHand(
+      [m(1), m(1), m(1), m(9), m(9), m(9), p(5), p(5), p(5), s(3), s(3), s(2), s(2)],
+      s(3),
+      { winType: "ron", seatWind: "south", roundWind: "east", doraIndicators: [] },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.yaku.some((y) => y.name === "suuankou")).toBe(false);
+    expect(result.yaku.some((y) => y.name === "sanankou")).toBe(true);
+    expect(result.yaku.some((y) => y.name === "toitoi")).toBe(true);
+    expect(result.handName).toBe("mangan");
+    expect(result.points.total).toBe(8000);
+  });
+
+  it("tanki ron with four already-complete concealed triplets is still suuankou", () => {
+    // 111m 999m 555p 333s complete, single 7s waiting to pair; ron on 7s is a
+    // tanki wait, not shanpon - all four triplets stay concealed -> yakuman.
+    const hand = makeHand(
+      [m(1), m(1), m(1), m(9), m(9), m(9), p(5), p(5), p(5), s(3), s(3), s(3), s(7)],
+      s(7),
+      { winType: "ron", seatWind: "south", roundWind: "east", doraIndicators: [] },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.yaku.some((y) => y.name === "suuankou")).toBe(true);
+    expect(result.handName).toBe("yakuman");
+    expect(result.points.total).toBe(32000); // non-dealer ron yakuman
+  });
+});

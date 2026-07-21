@@ -448,13 +448,17 @@ export function detectYakuman(
     yaku.push({ name: "daisangen", nameJa: "大三元", han: 13, isYakuman: true });
   }
 
-  // Suuankou: four concealed triplets (tsumo only for standard; shanpon ron counts if 4 concealed)
+  // Suuankou: four concealed triplets. A ron on a shanpon wait completes its
+  // triplet from a discard, so that triplet is open (minko) - the hand then has
+  // only three concealed triplets and is sanankou + toitoi, NOT suuankou. Only a
+  // tsumo (all four self-drawn) or a tanki ron (the four triplets were already
+  // complete, the pair was the wait) qualifies for the yakuman.
   const allTripletGroups = [
     ...interp.groups.filter((g) => g.type === "triplet"),
     ...melds.filter((m) => m.type === "kan-closed"),
   ];
-  if (allTripletGroups.length === 4 && isOpen(melds) === false) {
-    // All four must be concealed; shanpon ron = still suuankou (just not tanki)
+  const ronShanpon = hand.winType === "ron" && interp.waitType === "shanpon";
+  if (allTripletGroups.length === 4 && isOpen(melds) === false && !ronShanpon) {
     yaku.push({ name: "suuankou", nameJa: "四暗刻", han: 13, isYakuman: true });
   }
 

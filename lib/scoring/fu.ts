@@ -28,12 +28,13 @@ function meldFu(meld: Meld): number {
   }
 }
 
-function closedGroupFu(tiles: Tile[], groupType: "sequence" | "triplet"): number {
-  if (groupType === "sequence") return 0;
-  // closed triplet
-  const representative = tiles[0];
-  const isYaochuu = isTerminalOrHonor(representative);
-  return isYaochuu ? 8 : 4;
+// Triplet fu depends on concealment: a concealed triplet (anko) is worth double
+// an open one (minko). 2/4 open, 4/8 concealed - the higher value in each pair
+// is for a terminal/honor triplet.
+function tripletFu(tiles: Tile[], concealed: boolean): number {
+  const isYaochuu = isTerminalOrHonor(tiles[0]);
+  if (concealed) return isYaochuu ? 8 : 4;
+  return isYaochuu ? 4 : 2;
 }
 
 function pairFu(
@@ -87,11 +88,22 @@ export function calculateFu(
   // Pair fu
   const pFu = pairFu(interp.pair, seatWind, roundWind, rules);
 
-  // Closed group fu (pairs contribute 0 here; pair fu handled separately)
-  const closedMeldFu = interp.groups.reduce(
-    (sum, g) => sum + (g.type === "pair" ? 0 : closedGroupFu(g.tiles, g.type as "sequence" | "triplet")),
-    0,
-  );
+  // Concealed group fu (pairs and sequences contribute 0 here; pair fu is
+  // handled separately). A triplet completed by a ron on a shanpon wait is
+  // scored as an OPEN triplet (minko), not concealed (anko) - the winning tile
+  // came from a discard, not the player's own hand. Exactly one triplet can
+  // contain the winning tile in a shanpon wait, so downgrade the first match.
+  const ronCompletesTriplet = winType === "ron" && interp.waitType === "shanpon";
+  let ronTripletDowngraded = false;
+  const closedMeldFu = interp.groups.reduce((sum, g) => {
+    if (g.type !== "triplet") return sum;
+    const completedByRon =
+      ronCompletesTriplet &&
+      !ronTripletDowngraded &&
+      g.tiles.some((t) => tilesEqual(t, interp.winningTile));
+    if (completedByRon) ronTripletDowngraded = true;
+    return sum + tripletFu(g.tiles, !completedByRon);
+  }, 0);
 
   // Open meld fu
   const openMeldFu = melds.reduce((sum, m) => sum + meldFu(m), 0);
@@ -104,8 +116,13 @@ export function calculateFu(
   // Open hand (with chi) = 30 base but can't claim closed-ron 10 bonus...
   // Standard: base always 30 for standard hand, then round up. But open hand minimum is 30.
   const rawTotal = base + pFu + totalMeldFu + waitFu + tsumoFu;
-  // Round up to nearest 10
-  const total = Math.ceil(rawTotal / 10) * 10;
+  // Round up to nearest 10, then apply the 30 fu floor. Every non-pinfu,
+  // non-chiitoitsu hand is worth at least 30 fu; the only legitimate sub-30
+  // cases (pinfu tsumo = 20, chiitoitsu = 25) are handled before this point.
+  // Without the floor an open hand of the "pinfu shape" (all sequences,
+  // valueless pair, ryanmen) won by ron computes to base 20 and nothing else,
+  // which is 10 fu short of the correct 30 (the open-pinfu / kuipinfu rule).
+  const total = Math.max(30, Math.ceil(rawTotal / 10) * 10);
 
   return { base, pairFu: pFu, meldFu: totalMeldFu, waitFu, tsumoFu, total };
 }
