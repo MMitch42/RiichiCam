@@ -562,6 +562,19 @@ export default function Home() {
     });
   }
 
+  // Doubles the canonical hard-wait yakuman (kokushi 13-sided, suuankou tanki,
+  // junsei chuurenpoutou) - grouped with Local Yaku under "Additional Yaku"
+  // since both are opt-in scoring extras beyond standard play, not something
+  // that changes how a hand is read.
+  const [doubleYakuman, setDoubleYakumanState] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem('doubleYakuman') === '1'; } catch { return false; }
+  });
+  function setDoubleYakuman(val: boolean) {
+    setDoubleYakumanState(val);
+    localStorage.setItem('doubleYakuman', val ? '1' : '0');
+  }
+
   // ── Result ────────────────────────────────────────────────────────────────
   const [result, setResult] = useState<ScoreResult | null>(null);
 
@@ -897,7 +910,7 @@ export default function Home() {
   function handleScore() {
     const hand = buildHand();
     if (!hand) return;
-    setResult(score(hand, { localYaku: localYakuConfig }));
+    setResult(score(hand, { localYaku: localYakuConfig, doubleYakuman }));
   }
 
   function handleMeldsChange(newMelds: Meld[]) {
@@ -1417,18 +1430,27 @@ export default function Home() {
             />
             <Toggle
               label="Renho (Hand of Man)"
-              sub="Non-dealer wins on the first round of discards before drawing. Only counts if Local Yaku → Renho is enabled."
+              sub="Non-dealer wins on the first round of discards before drawing. Only counts if Additional Yaku → Local Yaku → Renho is enabled."
               value={renho}
               onChange={setRenho}
               disabled={seatWind === 'east' || !localYakuConfig.renho}
             />
           </Disclosure>
 
-          {/* Local yaku */}
-          <Disclosure label="Local yaku">
-            <p className="text-xs pb-2" style={{ color: C.textSec }}>
-              House rules not used in standard play. Enable only if your game uses them.
-            </p>
+          {/* Additional yaku */}
+          <Disclosure label="Additional yaku">
+            <Toggle
+              label="Double Yakuman"
+              sub="Doubles the hardest-to-hit yakuman waits: kokushi's 13-sided wait, suuankou's tanki wait, and pure (junsei) chuurenpoutou."
+              value={doubleYakuman}
+              onChange={setDoubleYakuman}
+            />
+            <div className="mt-1 pt-3" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
+              <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.gold }}>Local yaku</p>
+              <p className="text-xs pt-1 pb-2" style={{ color: C.textSec }}>
+                House rules not used in standard play. Enable only if your game uses them.
+              </p>
+            </div>
             <Toggle
               label="Renho · 人和"
               sub="Non-dealer wins on first-round discard before drawing (5 han)."

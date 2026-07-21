@@ -5,8 +5,15 @@ function roundUp100(n: number): number {
   return Math.ceil(n / 100) * 100;
 }
 
-export function handName(han: number, fu: number, isYakuman: boolean, kiriagemangan: boolean): HandName | undefined {
-  if (isYakuman) return "yakuman";
+// yakumanUnits is the number of 13-han-equivalent yakuman "weight" on the hand:
+// 0 for a non-yakuman hand, 1 for a single yakuman, 2 for either two distinct
+// yakuman stacked on one hand (e.g. daisangen + tsuuiisou) or one doubled
+// yakuman (e.g. kokushi's 13-sided wait under the doubleYakuman rule), and so
+// on. Kazoe-yakuman (13+ han reached via ordinary yaku, no actual yakuman) is
+// NOT a yakuman for this purpose - it always pays flat single regardless of
+// how far past 13 han it counts, unlike real yakuman which multiply per unit.
+export function handName(han: number, fu: number, yakumanUnits: number, kiriagemangan: boolean): HandName | undefined {
+  if (yakumanUnits > 0) return "yakuman";
   if (han >= 13) return "kazoe-yakuman";
   if (han >= 11) return "sanbaiman";
   if (han >= 8) return "baiman";
@@ -27,8 +34,9 @@ function basicPoints(han: number, fu: number): number {
 // Mangan non-dealer ron = 2000×4 = 8000; dealer ron = 2000×6 = 12000
 const MANGAN_BASIC = 2000;
 
-function capBasic(han: number, fu: number, name: HandName | undefined): number {
-  if (name === "kazoe-yakuman" || name === "yakuman") return MANGAN_BASIC * 4; // 8000
+function capBasic(han: number, fu: number, name: HandName | undefined, yakumanUnits: number): number {
+  if (name === "yakuman") return MANGAN_BASIC * 4 * Math.max(1, yakumanUnits); // 8000 per unit
+  if (name === "kazoe-yakuman") return MANGAN_BASIC * 4;                       // 8000, flat
   if (name === "sanbaiman") return MANGAN_BASIC * 3;                            // 6000
   if (name === "baiman") return MANGAN_BASIC * 2;                               // 4000
   if (name === "haneman") return Math.floor(MANGAN_BASIC * 1.5);               // 3000
@@ -41,11 +49,11 @@ export function calculatePoints(
   fu: number,
   isDealer: boolean,
   winType: "tsumo" | "ron",
-  isYakuman: boolean,
+  yakumanUnits: number,
   kiriagemangan: boolean,
 ): PointsBreakdown {
-  const name = handName(han, fu, isYakuman, kiriagemangan);
-  const basic = capBasic(han, fu, name);
+  const name = handName(han, fu, yakumanUnits, kiriagemangan);
+  const basic = capBasic(han, fu, name, yakumanUnits);
 
   if (winType === "ron") {
     const multiplier = isDealer ? 6 : 4;

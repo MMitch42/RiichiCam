@@ -8,6 +8,17 @@ import { countDora, countAkaDora, doraFromIndicator, tilesEqual, isSuited } from
 import type { HandInterpretation } from "./hand-parser";
 import type { FuBreakdown } from "./types";
 
+// Sum of only the isYakuman-flagged yaku's han, divided into 13-han units.
+// A single yakuman is 1 unit; a doubled yakuman (han: 26) or two distinct
+// yakuman stacked on one hand are both 2 units; each further win multiplies
+// the payout again. Non-yakuman yaku (including kazoe-yakuman's regular han)
+// never contribute here - kazoe-yakuman always pays flat single, unlike real
+// yakuman which multiply per unit.
+function yakumanUnits(allYaku: Yaku[]): number {
+  const han = allYaku.filter((y) => y.isYakuman).reduce((sum, y) => sum + y.han, 0);
+  return Math.round(han / 13);
+}
+
 function bestInterpretation(
   interpretations: HandInterpretation[],
   hand: Hand,
@@ -60,8 +71,9 @@ function scoreStandardInterpretations(
   }
 
   const totalHan = structuralHan + doraCount + uraDoraCount;
-  const name = handName(totalHan, fu.total, isYakuman, rules.kiriagemangan);
-  const points = calculatePoints(totalHan, fu.total, isDealer, hand.winType, isYakuman, rules.kiriagemangan);
+  const units = yakumanUnits(allYaku);
+  const name = handName(totalHan, fu.total, units, rules.kiriagemangan);
+  const points = calculatePoints(totalHan, fu.total, isDealer, hand.winType, units, rules.kiriagemangan);
 
   return {
     valid: true,
@@ -119,12 +131,14 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
     if (hand.doubleRiichi) situationalYaku.push({ name: "double-riichi", nameJa: "ダブル立直", han: 2, isYakuman: false });
 
     const allYaku = [...yakumanList, ...situationalYaku];
-    const yakumanHan = 13;
-    const totalHan = yakumanHan;
+    // Situational yaku (riichi etc.) never scale a yakuman's payout - only
+    // stacking further yakuman does. totalHan reflects that: it's the
+    // yakuman's own han (13, or 26 if doubled), not the situational extras.
+    const totalHan = yakumanList.reduce((sum, y) => sum + y.han, 0);
 
     // Yakuman fu is irrelevant for points but we return 30 as convention
     const fuBreakdown: FuBreakdown = { base: 30, pairFu: 0, meldFu: 0, waitFu: 0, tsumoFu: 0, total: 30 };
-    const points = calculatePoints(totalHan, 30, isDealer, hand.winType, true, rules.kiriagemangan);
+    const points = calculatePoints(totalHan, 30, isDealer, hand.winType, yakumanUnits(allYaku), rules.kiriagemangan);
 
     return {
       valid: true,
@@ -150,13 +164,13 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
       // Only chiitoitsu itself counts; ensure it's there
     }
 
-    const isYakuman = yakumanList.length > 0;
     const structuralHan = allYaku.reduce((sum, y) => sum + y.han, 0);
     const totalHan = structuralHan + doraCount + uraDoraCount;
 
     const fuBreakdown = chiitoitsiFuBreakdown();
-    const name = handName(totalHan, 25, isYakuman, rules.kiriagemangan);
-    const points = calculatePoints(totalHan, 25, isDealer, hand.winType, isYakuman, rules.kiriagemangan);
+    const units = yakumanUnits(allYaku);
+    const name = handName(totalHan, 25, units, rules.kiriagemangan);
+    const points = calculatePoints(totalHan, 25, isDealer, hand.winType, units, rules.kiriagemangan);
 
     const chiitoitsuResult: ScoreResult = {
       valid: true,
@@ -218,8 +232,9 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
   }
 
   const totalHan = structuralHan + doraCount + uraDoraCount;
-  const name = handName(totalHan, fu.total, isYakuman, rules.kiriagemangan);
-  const points = calculatePoints(totalHan, fu.total, isDealer, hand.winType, isYakuman, rules.kiriagemangan);
+  const units = yakumanUnits(allYaku);
+  const name = handName(totalHan, fu.total, units, rules.kiriagemangan);
+  const points = calculatePoints(totalHan, fu.total, isDealer, hand.winType, units, rules.kiriagemangan);
 
   return {
     valid: true,

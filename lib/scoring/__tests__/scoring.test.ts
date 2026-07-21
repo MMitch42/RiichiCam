@@ -678,3 +678,96 @@ describe("chanta vs junchan", () => {
     expect(result.totalHan).toBe(4); // riichi(1) + junchan(3)
   });
 });
+
+// ─── Yakuman payout must scale with how many yakuman actually apply ─────────
+
+describe("multiple distinct yakuman stacking on one hand", () => {
+  it("daisangen + suuankou + tsuuiisou on one hand pays TRIPLE, not flat single", () => {
+    // 3 dragon triplets (daisangen) + 1 wind triplet + wind pair, all honors,
+    // all four groups concealed triplets (suuankou too). This isn't a rule
+    // variant - stacking distinct yakuman always multiplies the payout in
+    // every ruleset. Before the fix, capBasic() returned a flat 8000 basic
+    // regardless of how many yakuman applied, paying 32000 instead of the
+    // correct 96000 (3 x 32000) for a non-dealer ron.
+    const hand = makeHand(
+      [dragon("haku"), dragon("haku"), dragon("haku"), dragon("hatsu"), dragon("hatsu"), dragon("hatsu"), dragon("chun"), dragon("chun"), dragon("chun"), wind("east"), wind("east"), wind("east"), wind("south")],
+      wind("south"),
+      { winType: "ron", seatWind: "south", roundWind: "east", doraIndicators: [] },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.yaku.some((y) => y.name === "daisangen")).toBe(true);
+    expect(result.yaku.some((y) => y.name === "suuankou")).toBe(true);
+    expect(result.yaku.some((y) => y.name === "tsuuiisou")).toBe(true);
+    expect(result.handName).toBe("yakuman");
+    expect(result.points.total).toBe(96000);
+  });
+
+  it("kazoe-yakuman (13+ han via ordinary yaku, no real yakuman) stays flat single regardless of how far past 13", () => {
+    // Junchan (3h) + riichi (1h) = 4 structural han; pile on enough dora
+    // (matched against the hand's single 1m, repeated indicators purely to
+    // drive the han count for this test) to clear 13 without any yakuman.
+    const hand = makeHand(
+      [m(1), m(2), m(3), p(1), p(2), p(3), s(1), s(2), s(3), s(7), s(8), s(9), p(1)],
+      p(1),
+      { winType: "ron", seatWind: "south", riichi: true, doraIndicators: Array(12).fill(m(9)) },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.yaku.every((y) => !y.isYakuman)).toBe(true);
+    expect(result.totalHan + result.doraCount).toBeGreaterThanOrEqual(13);
+    expect(result.handName).toBe("kazoe-yakuman");
+    expect(result.points.total).toBe(32000); // flat, never multiplies
+  });
+});
+
+// ─── doubleYakuman rule: only the canonical near-universal cases double ─────
+
+describe("doubleYakuman rule", () => {
+  it("kokushi: 13-sided wait doubles, plain tanki on the missing tile does not", () => {
+    const thirteenSidedHand = makeHand(
+      [m(1), m(9), p(1), p(9), s(1), s(9), wind("east"), wind("south"), wind("west"), wind("north"), dragon("haku"), dragon("hatsu"), dragon("chun")],
+      m(1), // already held all 13 types pre-win; won on a duplicate of one - genuine 13-sided wait
+      { winType: "ron", seatWind: "south" },
+    );
+    const tankiHand = makeHand(
+      [m(1), m(9), p(1), p(9), s(1), s(9), wind("east"), wind("south"), wind("west"), wind("north"), dragon("haku"), dragon("hatsu"), m(1)],
+      dragon("chun"), // pre-win is missing chun entirely (holds a duplicate m1 instead) - only chun completes it
+      { winType: "ron", seatWind: "south" },
+    );
+    expect(score(thirteenSidedHand, { doubleYakuman: true }).points.total).toBe(64000);
+    expect(score(tankiHand, { doubleYakuman: true }).points.total).toBe(32000);
+    // The rule must be opt-in - default (or explicit false) stays single.
+    expect(score(thirteenSidedHand, { doubleYakuman: false }).points.total).toBe(32000);
+  });
+
+  it("suuankou: tanki wait (all 4 triplets already complete) doubles, shanpon does not", () => {
+    const tankiHand = makeHand(
+      [m(1), m(1), m(1), m(9), m(9), m(9), p(5), p(5), p(5), s(3), s(3), s(3), s(7)],
+      s(7),
+      { winType: "tsumo", seatWind: "south", roundWind: "east" },
+    );
+    const shanponHand = makeHand(
+      [m(1), m(1), m(1), m(9), m(9), m(9), p(5), p(5), p(5), s(3), s(3), s(7), s(7)],
+      s(3),
+      { winType: "tsumo", seatWind: "south", roundWind: "east" },
+    );
+    expect(score(tankiHand, { doubleYakuman: true }).points.total).toBe(64000);
+    expect(score(shanponHand, { doubleYakuman: true }).points.total).toBe(32000);
+  });
+
+  it("chuurenpoutou: pure (junsei) pre-win shape doubles, impure does not", () => {
+    const pureHand = makeHand(
+      [m(1), m(1), m(1), m(2), m(3), m(4), m(5), m(6), m(7), m(8), m(9), m(9), m(9)],
+      m(5), // pre-win is exactly 1112345678999 - any of 1-9 would complete it
+      { winType: "ron", seatWind: "south" },
+    );
+    const impureHand = makeHand(
+      [m(1), m(1), m(1), m(3), m(3), m(4), m(5), m(6), m(7), m(8), m(9), m(9), m(9)],
+      m(2), // pre-win has an extra 3 and is missing the 2 - only 2m completes it
+      { winType: "ron", seatWind: "south" },
+    );
+    expect(score(pureHand, { doubleYakuman: true }).points.total).toBe(64000);
+    expect(score(impureHand, { doubleYakuman: true }).points.total).toBe(32000);
+  });
+});

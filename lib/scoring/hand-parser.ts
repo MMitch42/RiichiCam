@@ -237,15 +237,21 @@ function isKokushi(tiles: Tile[], winningTile: Tile): KokushiInterpretation | nu
   for (const orphan of KOKUSHI_TILES) {
     if (!all14.some((t) => tilesEqual(t, orphan))) return null;
   }
-  // Has all 13 - check for 13-sided wait
-  const counts = new Map<string, number>();
-  for (const t of all14) counts.set(tileKey(t), (counts.get(tileKey(t)) ?? 0) + 1);
-  const isThirteenSided = KOKUSHI_TILES.every((orphan) => (counts.get(tileKey(orphan)) ?? 0) >= 1);
-  if (!isThirteenSided) return null;
-  const allOrphans = KOKUSHI_TILES.some((o) => tilesEqual(o, winningTile));
+  // 13-sided wait vs tanki depends on the PRE-WIN 13-tile hand, not the final
+  // 14-tile one - every valid kokushi win has all 13 types present once the
+  // winning tile is added, so checking the post-win hand can never tell the
+  // two apart. If the pre-win hand already holds all 13 types (no duplicate
+  // yet), the winning tile could have been any of them: the 13-sided wait.
+  // If the pre-win hand is missing exactly one type (and holds a duplicate of
+  // some other type as the placeholder pair), only that missing type
+  // completes it: an ordinary tanki wait.
+  const preWin = [...all14];
+  preWin.splice(preWin.findIndex((t) => tilesEqual(t, winningTile)), 1);
+  const preWinTypes = new Set(preWin.map(tileKey));
+  const isThirteenSided = KOKUSHI_TILES.every((orphan) => preWinTypes.has(tileKey(orphan)));
   return {
     type: "kokushi",
-    waitType: allOrphans ? "kokushi-thirteen" : "tanki",
+    waitType: isThirteenSided ? "kokushi-thirteen" : "tanki",
     winningTile,
   };
 }

@@ -32,64 +32,81 @@ function makeHand(closedTiles: Tile[], winningTile: Tile, overrides: Partial<Han
 
 describe("handName - mangan thresholds", () => {
   // Below 2000 basic points → no cap
-  it("4h 20f → undefined  (basic 1280)", () => expect(handName(4, 20, false, false)).toBeUndefined());
-  it("4h 30f → undefined  (basic 1920 < 2000)", () => expect(handName(4, 30, false, false)).toBeUndefined());
-  it("3h 50f → undefined  (basic 1600)", () => expect(handName(3, 50, false, false)).toBeUndefined());
-  it("3h 60f → undefined  (basic 1920 < 2000)", () => expect(handName(3, 60, false, false)).toBeUndefined());
+  it("4h 20f → undefined  (basic 1280)", () => expect(handName(4, 20, 0, false)).toBeUndefined());
+  it("4h 30f → undefined  (basic 1920 < 2000)", () => expect(handName(4, 30, 0, false)).toBeUndefined());
+  it("3h 50f → undefined  (basic 1600)", () => expect(handName(3, 50, 0, false)).toBeUndefined());
+  it("3h 60f → undefined  (basic 1920 < 2000)", () => expect(handName(3, 60, 0, false)).toBeUndefined());
 
   // At or above 2000 basic points → mangan
-  it("4h 40f → mangan     (basic 2560 ≥ 2000)", () => expect(handName(4, 40, false, false)).toBe("mangan"));
-  it("4h 60f → mangan     (basic 3840 ≥ 2000)", () => expect(handName(4, 60, false, false)).toBe("mangan"));
-  it("3h 70f → mangan     (basic 2240 ≥ 2000)", () => expect(handName(3, 70, false, false)).toBe("mangan"));
-  it("3h 80f → mangan     (basic 2560 ≥ 2000)", () => expect(handName(3, 80, false, false)).toBe("mangan"));
+  it("4h 40f → mangan     (basic 2560 ≥ 2000)", () => expect(handName(4, 40, 0, false)).toBe("mangan"));
+  it("4h 60f → mangan     (basic 3840 ≥ 2000)", () => expect(handName(4, 60, 0, false)).toBe("mangan"));
+  it("3h 70f → mangan     (basic 2240 ≥ 2000)", () => expect(handName(3, 70, 0, false)).toBe("mangan"));
+  it("3h 80f → mangan     (basic 2560 ≥ 2000)", () => expect(handName(3, 80, 0, false)).toBe("mangan"));
 
   // Kiriagemangan rounds up sub-2000 cases
-  it("4h 30f kiriagemangan → mangan", () => expect(handName(4, 30, false, true)).toBe("mangan"));
-  it("3h 60f kiriagemangan → mangan", () => expect(handName(3, 60, false, true)).toBe("mangan"));
+  it("4h 30f kiriagemangan → mangan", () => expect(handName(4, 30, 0, true)).toBe("mangan"));
+  it("3h 60f kiriagemangan → mangan", () => expect(handName(3, 60, 0, true)).toBe("mangan"));
 
   // Higher limits
-  it("5h → mangan",    () => expect(handName(5, 20, false, false)).toBe("mangan"));
-  it("6h → haneman",   () => expect(handName(6, 20, false, false)).toBe("haneman"));
-  it("7h → haneman",   () => expect(handName(7, 20, false, false)).toBe("haneman"));
-  it("8h → baiman",    () => expect(handName(8, 20, false, false)).toBe("baiman"));
-  it("11h → sanbaiman",() => expect(handName(11, 20, false, false)).toBe("sanbaiman"));
-  it("13h → kazoe-yakuman", () => expect(handName(13, 20, false, false)).toBe("kazoe-yakuman"));
+  it("5h → mangan",    () => expect(handName(5, 20, 0, false)).toBe("mangan"));
+  it("6h → haneman",   () => expect(handName(6, 20, 0, false)).toBe("haneman"));
+  it("7h → haneman",   () => expect(handName(7, 20, 0, false)).toBe("haneman"));
+  it("8h → baiman",    () => expect(handName(8, 20, 0, false)).toBe("baiman"));
+  it("11h → sanbaiman",() => expect(handName(11, 20, 0, false)).toBe("sanbaiman"));
+  it("13h → kazoe-yakuman", () => expect(handName(13, 20, 0, false)).toBe("kazoe-yakuman"));
+
+  // yakumanUnits scales the payout: 1 = single, 2 = double (either a doubled
+  // yakuman or two distinct yakuman stacked on one hand), etc.
+  it("13h with yakumanUnits=1 → yakuman", () => expect(handName(13, 20, 1, false)).toBe("yakuman"));
+  it("26h with yakumanUnits=2 → still just 'yakuman' by name (points scale separately)", () => expect(handName(26, 20, 2, false)).toBe("yakuman"));
 });
 
 // ─── calculatePoints: payment correctness at mangan boundaries ────────────────
 
 describe("calculatePoints - mangan boundary payments (non-dealer)", () => {
   it("4h 40f ron = 8000 mangan", () => {
-    expect(calculatePoints(4, 40, false, "ron", false, false).total).toBe(8000);
+    expect(calculatePoints(4, 40, false, "ron", 0, false).total).toBe(8000);
   });
 
   it("4h 40f tsumo = 8000 mangan (dealer 4000, each non-dealer 2000)", () => {
-    const pts = calculatePoints(4, 40, false, "tsumo", false, false);
+    const pts = calculatePoints(4, 40, false, "tsumo", 0, false);
     expect(pts.total).toBe(8000);
     expect(pts.tsumo?.dealerPays).toBe(4000);
     expect(pts.tsumo?.nonDealerPays).toBe(2000);
   });
 
   it("3h 70f ron = 8000 mangan", () => {
-    expect(calculatePoints(3, 70, false, "ron", false, false).total).toBe(8000);
+    expect(calculatePoints(3, 70, false, "ron", 0, false).total).toBe(8000);
   });
 
   // 4h 30f: basic=1920, roundUp100(1920×4)=7700 - NOT mangan without kiriagemangan
   it("4h 30f ron, no kiriagemangan = 7700 (below mangan)", () => {
-    expect(calculatePoints(4, 30, false, "ron", false, false).total).toBe(7700);
+    expect(calculatePoints(4, 30, false, "ron", 0, false).total).toBe(7700);
   });
 
   it("4h 30f ron, kiriagemangan = 8000", () => {
-    expect(calculatePoints(4, 30, false, "ron", false, true).total).toBe(8000);
+    expect(calculatePoints(4, 30, false, "ron", 0, true).total).toBe(8000);
   });
 
   // 3h 60f: basic=1920 - same boundary as 4h 30f
   it("3h 60f ron, no kiriagemangan = 7700 (below mangan)", () => {
-    expect(calculatePoints(3, 60, false, "ron", false, false).total).toBe(7700);
+    expect(calculatePoints(3, 60, false, "ron", 0, false).total).toBe(7700);
   });
 
   it("3h 60f ron, kiriagemangan = 8000", () => {
-    expect(calculatePoints(3, 60, false, "ron", false, true).total).toBe(8000);
+    expect(calculatePoints(3, 60, false, "ron", 0, true).total).toBe(8000);
+  });
+
+  it("13h yakumanUnits=1 ron = 32000 (single yakuman)", () => {
+    expect(calculatePoints(13, 20, false, "ron", 1, false).total).toBe(32000);
+  });
+
+  it("26h yakumanUnits=2 ron = 64000 (double yakuman)", () => {
+    expect(calculatePoints(26, 20, false, "ron", 2, false).total).toBe(64000);
+  });
+
+  it("13h yakumanUnits=0 ron = 32000 (kazoe-yakuman, flat single regardless of han)", () => {
+    expect(calculatePoints(13, 20, false, "ron", 0, false).total).toBe(32000);
   });
 });
 

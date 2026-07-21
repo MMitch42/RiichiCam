@@ -409,9 +409,12 @@ export function detectYakuman(
   const yaku: Yaku[] = [];
   const melds = hand.melds;
 
-  // Kokushi musou
+  // Kokushi musou. Doubled under the doubleYakuman rule when won on the
+  // 13-sided wait (already held all 13 orphan types, tanki on any one of
+  // them) rather than a plain tanki wait on the single missing type.
   if (parsed.type === "kokushi") {
-    yaku.push({ name: "kokushi", nameJa: "国士無双", han: 13, isYakuman: true });
+    const doubled = rules.doubleYakuman && parsed.interp.waitType === "kokushi-thirteen";
+    yaku.push({ name: "kokushi", nameJa: "国士無双", han: doubled ? 26 : 13, isYakuman: true });
     return yaku;
   }
 
@@ -466,7 +469,12 @@ export function detectYakuman(
   ];
   const ronShanpon = hand.winType === "ron" && interp.waitType === "shanpon";
   if (allTripletGroups.length === 4 && isOpen(melds) === false && !ronShanpon) {
-    yaku.push({ name: "suuankou", nameJa: "四暗刻", han: 13, isYakuman: true });
+    // Doubled under the doubleYakuman rule specifically for the tanki form -
+    // all four triplets already complete, won by a single-tile wait on the
+    // pair. The shanpon form (including tsumo shanpon, which stays valid
+    // suuankou since tsumo never opens a group) is the ordinary single value.
+    const doubled = rules.doubleYakuman && interp.waitType === "tanki";
+    yaku.push({ name: "suuankou", nameJa: "四暗刻", han: doubled ? 26 : 13, isYakuman: true });
   }
 
   // Shousuushi: four winds with triplets of 3 + pair of 1
@@ -556,7 +564,17 @@ export function detectYakuman(
         }
       }
       if (isChuuren) {
-        yaku.push({ name: "chuurenpoutou", nameJa: "九蓮宝燈", han: 13, isYakuman: true });
+        // Doubled under the doubleYakuman rule for the pure (junsei) form:
+        // the hand BEFORE the winning tile is already exactly 1112345678999,
+        // so literally any of the 9 tiles in that suit completes it (the
+        // genuine 9-sided wait). If the pre-win hand is some other valid
+        // arrangement (e.g. 1113345678999, missing a 2 but with an extra 3),
+        // only specific tiles complete it - that's the ordinary single value,
+        // even though the final 14-tile hand still matches the base pattern.
+        const preWinVals = hand.closedTiles.map((t) => (t as SuitedTile).value).sort((a, b) => a - b);
+        const isPure = preWinVals.join() === base.join();
+        const doubled = rules.doubleYakuman && isPure;
+        yaku.push({ name: "chuurenpoutou", nameJa: "九蓮宝燈", han: doubled ? 26 : 13, isYakuman: true });
       }
     }
   }
