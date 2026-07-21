@@ -978,6 +978,12 @@ export default function Home() {
 
   const meldTileCount = melds.reduce((s, m) => s + m.tiles.length, 0);
   const numKans = melds.filter((m) => m.type.startsWith('kan')).length;
+  // A hand is only "open" if it has a called meld. A closed kan (ankan) is
+  // declared from your own tiles and keeps the hand concealed - so a hand whose
+  // only melds are closed kans is still Closed (matches the scoring engine's
+  // isOpen()). Without this, declaring a closed kan wrongly flipped the badge
+  // to "Open".
+  const handIsOpen = melds.some((m) => m.type !== 'kan-closed');
 
   const tenpaiWaits = useMemo<Tile[]>(() => {
     const meldCount = melds.reduce((s, m) => s + m.tiles.length, 0);
@@ -1079,12 +1085,12 @@ export default function Home() {
                 <span
                   className="text-xs font-bold tracking-widest uppercase px-1.5 py-0.5 rounded-sm"
                   style={
-                    melds.length > 0
+                    handIsOpen
                       ? { background: 'rgba(201,162,39,0.15)', color: C.gold, border: `1px solid ${C.goldBorderSm}` }
                       : { background: 'transparent', color: C.textDim, border: `1px solid ${C.goldBorderXs}` }
                   }
                 >
-                  {melds.length > 0 ? 'Open' : 'Closed'}
+                  {handIsOpen ? 'Open' : 'Closed'}
                 </span>
               )}
             </div>
