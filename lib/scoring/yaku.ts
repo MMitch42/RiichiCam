@@ -115,9 +115,13 @@ export function detectYaku(
     yaku.push({ name: "tanyao", nameJa: "断么九", han: 1, isYakuman: false });
   }
 
-  // Pinfu: all sequences, pair not yakuhai, two-sided wait (ryanmen)
+  // Pinfu: all sequences, pair not yakuhai, two-sided wait (ryanmen). Requires
+  // literally no melds at all - isClosed(melds) alone isn't strict enough,
+  // since it also passes for a closed kan (ankan). An ankan is never a
+  // sequence, so it must disqualify pinfu even though it doesn't "open" the
+  // hand for riichi/menzen-tsumo purposes.
   const isPinfu =
-    isClosed(melds) &&
+    melds.length === 0 &&
     interp.groups.every((g) => g.type === "sequence") &&
     yakuhai(interp.pair, hand.seatWind, hand.roundWind) === 0 &&
     interp.waitType === "ryanmen";
@@ -249,7 +253,11 @@ export function detectYaku(
     yaku.push({ name: "chinitsu", nameJa: "清一色", han, isYakuman: false });
   }
 
-  // Chanta: every group + pair contains a terminal or honor
+  // Chanta / Junchan: every group + pair contains a terminal (junchan) or a
+  // terminal-or-honor (chanta). Every junchan hand is structurally also a
+  // chanta hand (a terminal satisfies "terminal or honor" too), but they're
+  // mutually exclusive in scoring - only the higher-value junchan should
+  // count, the same way ryanpeiko already replaces iipeiko above.
   const allGroupsForChanta = [
     ...interp.groups,
     ...melds.map((m) => ({ type: m.type === "chi" ? "sequence" : ("triplet" as const), tiles: m.tiles })),
@@ -259,17 +267,16 @@ export function detectYaku(
     hasSequence &&
     allGroupsForChanta.every((g) => g.tiles.some(isTerminalOrHonor)) &&
     isTerminalOrHonor(interp.pair);
-  if (isChanta && !tiles.every(isTerminalOrHonor)) {
-    const han = open ? 1 : 2;
-    yaku.push({ name: "chanta", nameJa: "混全帯么九", han, isYakuman: false });
-  }
-
-  // Junchan: every group + pair contains a terminal (no honors)
   const isJunchan =
     hasSequence &&
     !hasHonors &&
     allGroupsForChanta.every((g) => g.tiles.some(isTerminal)) &&
     isTerminal(interp.pair);
+  if (isChanta && !isJunchan && !tiles.every(isTerminalOrHonor)) {
+    const han = open ? 1 : 2;
+    yaku.push({ name: "chanta", nameJa: "混全帯么九", han, isYakuman: false });
+  }
+
   if (isJunchan) {
     const han = open ? 2 : 3;
     yaku.push({ name: "junchan", nameJa: "純全帯么九", han, isYakuman: false });

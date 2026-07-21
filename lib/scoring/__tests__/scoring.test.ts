@@ -630,3 +630,51 @@ describe("suuankou requires the fourth triplet to be concealed", () => {
     expect(result.points.total).toBe(32000); // non-dealer ron yakuman
   });
 });
+
+// ─── Pinfu must exclude ANY meld, including a closed kan (ankan) ────────────
+
+describe("pinfu vs closed kan (ankan)", () => {
+  it("a closed kan present makes pinfu impossible and its fu must still count", () => {
+    // isClosed(melds) alone isn't strict enough for pinfu - it also passes for
+    // an ankan, which is never a sequence and must disqualify pinfu even
+    // though it doesn't "open" the hand for riichi/menzen-tsumo purposes.
+    // Before the fix, this hand wrongly scored pinfu and, because fu.ts
+    // shortcuts to the flat pinfu formula, silently dropped the ankan's 16 fu
+    // entirely: 30 fu instead of the correct 30(base) + 16(ankan simple) = 50.
+    const hand = makeHand(
+      [m(2), m(3), m(4), p(4), p(5), p(6), p(9), p(9), s(6), s(7)],
+      s(8),
+      {
+        winType: "ron", seatWind: "south", roundWind: "east", riichi: true, doraIndicators: [],
+        melds: [{ type: "kan-closed", tiles: [s(2), s(2), s(2), s(2)] as [Tile, Tile, Tile, Tile] }],
+      },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.yaku.some((y) => y.name === "pinfu")).toBe(false);
+    expect(result.fu).toBe(50);
+  });
+});
+
+// ─── Chanta and junchan are mutually exclusive - only the higher one counts ─
+
+describe("chanta vs junchan", () => {
+  it("a junchan-shaped hand scores ONLY junchan, not chanta stacked on top", () => {
+    // Every junchan hand (every group + pair has a terminal, no honors) is
+    // structurally also a chanta hand (a terminal satisfies chanta's broader
+    // "terminal or honor" check too), but they're mutually exclusive in
+    // scoring - the same way ryanpeiko already replaces iipeiko. Before the
+    // fix this hand wrongly counted both: riichi(1) + chanta(2) + junchan(3)
+    // = 6 han instead of the correct riichi(1) + junchan(3) = 4 han.
+    const hand = makeHand(
+      [m(1), m(2), m(3), p(7), p(8), p(9), s(1), s(2), s(3), s(7), s(8), s(9), p(1)],
+      p(1),
+      { winType: "ron", riichi: true, doraIndicators: [] },
+    );
+    const result = score(hand);
+    expect(result.valid).toBe(true);
+    expect(result.yaku.some((y) => y.name === "junchan")).toBe(true);
+    expect(result.yaku.some((y) => y.name === "chanta")).toBe(false);
+    expect(result.totalHan).toBe(4); // riichi(1) + junchan(3)
+  });
+});
