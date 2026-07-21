@@ -19,6 +19,17 @@ function yakumanUnits(allYaku: Yaku[]): number {
   return Math.round(han / 13);
 }
 
+// Once any yakuman applies, ordinary yaku (tsumo, yakuhai, toitoi, ...) are
+// irrelevant to both the score and the display - a yakuman hand is always
+// announced as just the yakuman(s), never "yakuman + 6 more han of yaku
+// stacked on top". Without this, totalHan/yaku would show a nonsensical
+// inflated number (e.g. suuankou + tsumo + toitoi + sanankou = "19 han")
+// even though the payout already ignores everything but the yakuman.
+function supersedeWithYakuman(allYaku: Yaku[]): Yaku[] {
+  const yakumanOnly = allYaku.filter((y) => y.isYakuman);
+  return yakumanOnly.length > 0 ? yakumanOnly : allYaku;
+}
+
 function bestInterpretation(
   interpretations: HandInterpretation[],
   hand: Hand,
@@ -63,12 +74,15 @@ function scoreStandardInterpretations(
   uraDoraCount: number,
   isDealer: boolean,
 ): ScoreResult | null {
-  const { fu, yaku: allYaku, han: structuralHan } = bestInterpretation(interpretations, hand, rules);
-  const isYakuman = allYaku.some((y) => y.isYakuman);
+  const { fu, yaku: rawYaku, han: rawStructuralHan } = bestInterpretation(interpretations, hand, rules);
+  const isYakuman = rawYaku.some((y) => y.isYakuman);
 
-  if (!isYakuman && allYaku.filter((y) => !y.isYakuman).length === 0) {
+  if (!isYakuman && rawYaku.filter((y) => !y.isYakuman).length === 0) {
     return null;
   }
+
+  const allYaku = supersedeWithYakuman(rawYaku);
+  const structuralHan = isYakuman ? allYaku.reduce((sum, y) => sum + y.han, 0) : rawStructuralHan;
 
   const totalHan = structuralHan + doraCount + uraDoraCount;
   const units = yakumanUnits(allYaku);
@@ -127,8 +141,8 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
     const yakuList: Yaku[] = [];
     const yakumanList = detectYakuman(hand, { type: "kokushi", interp: parsed }, rules);
     const situationalYaku: Yaku[] = [];
-    if (hand.riichi) situationalYaku.push({ name: "riichi", nameJa: "立直", han: 1, isYakuman: false });
     if (hand.doubleRiichi) situationalYaku.push({ name: "double-riichi", nameJa: "ダブル立直", han: 2, isYakuman: false });
+    else if (hand.riichi) situationalYaku.push({ name: "riichi", nameJa: "立直", han: 1, isYakuman: false });
 
     const allYaku = [...yakumanList, ...situationalYaku];
     // Situational yaku (riichi etc.) never scale a yakuman's payout - only
@@ -158,11 +172,7 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
     const parsedForYaku = { type: "chiitoitsu" as const, interp: parsed };
     const yakuList = detectYaku(hand, parsedForYaku, rules);
     const yakumanList = detectYakuman(hand, parsedForYaku, rules);
-    const allYaku = [...yakuList, ...yakumanList];
-
-    if (allYaku.filter((y) => !y.isYakuman).length === 0 && yakumanList.length === 0) {
-      // Only chiitoitsu itself counts; ensure it's there
-    }
+    const allYaku = supersedeWithYakuman([...yakuList, ...yakumanList]);
 
     const structuralHan = allYaku.reduce((sum, y) => sum + y.han, 0);
     const totalHan = structuralHan + doraCount + uraDoraCount;
@@ -206,15 +216,15 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
   }
 
   // Standard hand
-  const { interp, fu, yaku: allYaku, han: structuralHan } = bestInterpretation(
+  const { fu, yaku: rawYaku, han: rawStructuralHan } = bestInterpretation(
     parsed.interpretations,
     hand,
     rules,
   );
 
-  const isYakuman = allYaku.some((y) => y.isYakuman);
+  const isYakuman = rawYaku.some((y) => y.isYakuman);
 
-  if (!isYakuman && allYaku.filter((y) => !y.isYakuman).length === 0) {
+  if (!isYakuman && rawYaku.filter((y) => !y.isYakuman).length === 0) {
     // No yaku - check if dora saves it (no, dora doesn't give yaku)
     // Actually need at least one yaku to win
     return {
@@ -230,6 +240,9 @@ export function score(hand: Hand, rulesOverride?: Partial<RulesConfig>): ScoreRe
       points: { total: 0 },
     };
   }
+
+  const allYaku = supersedeWithYakuman(rawYaku);
+  const structuralHan = isYakuman ? allYaku.reduce((sum, y) => sum + y.han, 0) : rawStructuralHan;
 
   const totalHan = structuralHan + doraCount + uraDoraCount;
   const units = yakumanUnits(allYaku);

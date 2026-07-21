@@ -66,11 +66,13 @@ export function detectYaku(
 
   // ── Situational yaku (always closed) ──────────────────────────────────────
 
-  if (hand.riichi && isClosed(melds)) {
-    yaku.push({ name: "riichi", nameJa: "立直", han: 1, isYakuman: false });
-  }
+  // Double riichi supersedes riichi (it's riichi declared on the first
+  // discard, not an additional yaku on top) - callers may set both flags
+  // together since double riichi implies riichi, so only one may score.
   if (hand.doubleRiichi && isClosed(melds)) {
     yaku.push({ name: "double-riichi", nameJa: "ダブル立直", han: 2, isYakuman: false });
+  } else if (hand.riichi && isClosed(melds)) {
+    yaku.push({ name: "riichi", nameJa: "立直", han: 1, isYakuman: false });
   }
   if (hand.ippatsu && (hand.riichi || hand.doubleRiichi)) {
     yaku.push({ name: "ippatsu", nameJa: "一発", han: 1, isYakuman: false });
@@ -95,7 +97,35 @@ export function detectYaku(
 
   if (parsed.type === "chiitoitsu") {
     yaku.push({ name: "chiitoitsu", nameJa: "七対子", han: 2, isYakuman: false });
-    return yaku; // chiitoitsu is incompatible with most other structural yaku
+
+    // Chiitoitsu has no groups, so yaku that depend on sequences/triplets
+    // (pinfu, iipeiko, sanshoku, ittsu, yakuhai, toitoi, ...) can't apply -
+    // but the tile-category yaku (tanyao, honitsu/chinitsu, chanta/junchan)
+    // only care about which tiles were used, and chiitoitsu is always a
+    // fully-concealed hand, so they're scored here at their closed values.
+    const pairTiles = allTilesChiitoitsu(parsed.interp);
+    const hasHonorsC = pairTiles.some(isHonor);
+    const suitsC = suitSet(pairTiles);
+
+    if (pairTiles.every((t) => !isTerminalOrHonor(t))) {
+      yaku.push({ name: "tanyao", nameJa: "断么九", han: 1, isYakuman: false });
+    }
+    if (suitsC.size === 1 && hasHonorsC) {
+      yaku.push({ name: "honitsu", nameJa: "混一色", han: 3, isYakuman: false });
+    }
+    if (suitsC.size === 1 && !hasHonorsC) {
+      yaku.push({ name: "chinitsu", nameJa: "清一色", han: 6, isYakuman: false });
+    }
+    const isJunchanC = parsed.interp.pairs.every(isTerminal);
+    const isChantaC = parsed.interp.pairs.every(isTerminalOrHonor);
+    if (isChantaC && !isJunchanC) {
+      yaku.push({ name: "chanta", nameJa: "混全帯么九", han: 2, isYakuman: false });
+    }
+    if (isJunchanC) {
+      yaku.push({ name: "junchan", nameJa: "純全帯么九", han: 3, isYakuman: false });
+    }
+
+    return yaku;
   }
 
   if (parsed.type === "kokushi") {

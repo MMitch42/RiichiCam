@@ -275,8 +275,11 @@ describe("honitsu and chinitsu", () => {
   });
 
   it("chinitsu closed = 6 han", () => {
+    // Single-suit hand that is NOT also chuurenpoutou (avoid 111.....999 + one
+    // extra, which is nine gates and - being a yakuman - correctly supersedes
+    // chinitsu in the returned yaku list rather than stacking with it).
     const hand = makeHand(
-      [m(1), m(1), m(1), m(2), m(3), m(4), m(5), m(6), m(7), m(7), m(8), m(9), m(9)],
+      [m(2), m(3), m(4), m(2), m(3), m(4), m(5), m(6), m(7), m(7), m(8), m(1), m(1)],
       m(9),
       { winType: "ron" },
     );

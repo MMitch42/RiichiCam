@@ -104,12 +104,18 @@ function determineWaits(
   groups: TileGroup[],
   winningTile: Tile,
 ): WaitType[] {
-  // Tanki: winning tile completes the pair
+  const waits = new Set<WaitType>();
+
+  // Tanki: winning tile completes the pair. This is only ONE possible
+  // narrative when the winning tile's value also appears in a group (e.g.
+  // three copies of a tile: two held as a pair-in-progress plus one that
+  // also happens to complete a sequence) - it must not short-circuit the
+  // group checks below, or a legitimate ryanmen/pinfu reading gets silently
+  // dropped in favor of a worse-scoring tanki-only interpretation.
   if (tilesEqual(winningTile, pair)) {
-    return ["tanki"];
+    waits.add("tanki");
   }
 
-  const waits = new Set<WaitType>();
   for (const group of groups) {
     const hasWinner = group.tiles.some((t) => tilesEqual(t, winningTile));
     if (!hasWinner) continue;

@@ -30,3 +30,4 @@ next-env.d.ts
 
 # onnxruntime-web runtime (wasm binaries regenerated from node_modules on install)
 /public/ort/
+__pycache__/
