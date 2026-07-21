@@ -593,17 +593,14 @@ export default function Home() {
   // anyway.) ensureWarmedUp is idempotent, so this is also safe against
   // React StrictMode's double-effect-invocation in dev.
   //
-  // Three states, not a boolean -- 'warming' actively blocks scanning (with
-  // an explanation) rather than leaving the UI silently unusable, since
-  // there's no server-side fallback to lean on anymore. A genuine warm-up
-  // FAILURE (unsupported browser, model fetch failure) must still leave
-  // scanning usable -- 'failed' unblocks the UI same as 'ready' does, just
-  // with onDeviceReady staying false so detectIndividual/detectGuided
-  // return a clear "enter manually" error instead of attempting a doomed
-  // on-device call. Only the active wait blocks; a resolved outcome
-  // (either way) never leaves a user stuck staring at a message.
+  // Three states, not a boolean. 'warming' shows an informational note but no
+  // longer blocks anything: a scan tapped mid-warm-up waits via
+  // ensureReadyForScan(), and manual entry is always available. A genuine
+  // warm-up FAILURE (unsupported browser, model fetch failure) resolves to
+  // 'failed', which makes ensureReadyForScan() return false so
+  // detectIndividual/detectGuided surface a clear "enter manually" message
+  // instead of attempting a doomed on-device call.
   const [warmupState, setWarmupState] = useState<'warming' | 'ready' | 'failed'>('warming');
-  const onDeviceReady = warmupState === 'ready';
   // The ~30s figure only applies to a genuinely cold load (no cached model/
   // wasm yet). localStorage can't be read during SSR, so whatever this
   // defaults to is necessarily what gets server-rendered and briefly shown
@@ -633,6 +630,22 @@ export default function Home() {
       .catch(() => { if (!cancelled) setWarmupState('failed'); });
     return () => { cancelled = true; };
   }, []);
+
+  // A scan tapped before warm-up finishes should WAIT for it, not be blocked.
+  // The scan buttons are no longer disabled during warm-up (that locked out the
+  // whole scan UI for however long warm-up took - up to a couple of minutes on
+  // a budget device - and made the app feel frozen); instead the button shows
+  // its normal loading spinner while this awaits the shared warm-up promise,
+  // then detection proceeds. Manual entry stays available throughout since it
+  // never touches this path. Returns whether on-device detection is usable -
+  // false only when warm-up genuinely failed (unsupported browser / model load
+  // failure), which routes the caller to the "enter manually" message.
+  async function ensureReadyForScan(): Promise<boolean> {
+    if (warmupState === 'ready') return true;
+    if (warmupState === 'failed') return false;
+    try { await ensureWarmedUp(DEFAULT_MODEL_URL); return true; }
+    catch { return false; }
+  }
 
   // ── Training data consent ─────────────────────────────────────────────────
   const sessionId = useRef(crypto.randomUUID());
@@ -773,8 +786,9 @@ export default function Home() {
     setHandImageUrl(`data:image/jpeg;base64,${base64}`);
     setResult(null);
     try {
+      const ready = await ensureReadyForScan();
       const data = await detectIndividual({
-        onDeviceReady,
+        onDeviceReady: ready,
         modelUrl: DEFAULT_MODEL_URL,
         base64,
         mode: 'hand',
@@ -806,8 +820,9 @@ export default function Home() {
     setDoraPaletteForced(true);
     setDoraImageUrl(`data:image/jpeg;base64,${base64}`);
     try {
+      const ready = await ensureReadyForScan();
       const data = await detectIndividual({
-        onDeviceReady,
+        onDeviceReady: ready,
         modelUrl: DEFAULT_MODEL_URL,
         base64,
         mode: 'dora',
@@ -852,8 +867,9 @@ export default function Home() {
     }
 
     try {
+      const ready = await ensureReadyForScan();
       const result = await detectGuided({
-        onDeviceReady,
+        onDeviceReady: ready,
         modelUrl: DEFAULT_MODEL_URL,
         base64: data.fullImage,
         sections: data.sections,
@@ -1003,8 +1019,8 @@ export default function Home() {
             />
             <p className="text-xs leading-relaxed" style={{ color: C.textSec }}>
               {hasWarmedBefore
-                ? 'Preparing your scanner…'
-                : 'Preparing your scanner. This one-time load usually takes about 30 seconds.'}
+                ? 'Getting the scanner ready. You can enter tiles manually in the meantime.'
+                : 'Getting the scanner ready (about 30 seconds the first time). You can enter tiles manually in the meantime.'}
             </p>
           </div>
         )}
@@ -1047,7 +1063,6 @@ export default function Home() {
             onCapture={handleHandCapture}
             isLoading={isDetectingHand}
             onStartGuided={() => setGuidedOpen(true)}
-            disabled={warmupState === 'warming'}
           />
           {handImageUrl && (
             <div className="flex items-center gap-3">
@@ -1207,7 +1222,6 @@ export default function Home() {
             label="Scan Dora / Ura Dora"
             onCapture={handleDoraCapture}
             isLoading={isDetectingDora}
-            disabled={warmupState === 'warming'}
           />
           {doraImageUrl && (
             <div className="flex items-center gap-3">
