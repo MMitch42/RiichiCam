@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { score } from "../index";
 import type { Hand, Tile, Meld } from "../types";
+import { DEFAULT_LOCAL_YAKU } from "../types";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -468,6 +469,31 @@ describe("yakuman", () => {
     );
     const result = score(hand);
     expect(result.yaku.some((y) => y.name === "tsuuiisou")).toBe(true);
+  });
+
+  it("tsuuiisou registers on a chiitoitsu of seven honor pairs even with daishichi off", () => {
+    // Seven pairs of all seven distinct honor tiles - a real hand, not gated
+    // behind the (default-off) daishichi local yaku toggle.
+    const hand = makeHand(
+      [wind("east"), wind("east"), wind("south"), wind("south"), wind("west"), wind("west"), wind("north"), wind("north"), dragon("haku"), dragon("haku"), dragon("hatsu"), dragon("hatsu"), dragon("chun")],
+      dragon("chun"),
+      { winType: "tsumo" },
+    );
+    const result = score(hand);
+    expect(result.yaku.some((y) => y.name === "tsuuiisou")).toBe(true);
+    expect(result.yaku.some((y) => y.name === "daishichi")).toBe(false);
+    expect(result.handName).toBe("yakuman");
+  });
+
+  it("daishichi stacks alongside tsuuiisou when the local yaku is enabled", () => {
+    const hand = makeHand(
+      [wind("east"), wind("east"), wind("south"), wind("south"), wind("west"), wind("west"), wind("north"), wind("north"), dragon("haku"), dragon("haku"), dragon("hatsu"), dragon("hatsu"), dragon("chun")],
+      dragon("chun"),
+      { winType: "tsumo" },
+    );
+    const result = score(hand, { localYaku: { ...DEFAULT_LOCAL_YAKU, daishichi: true } });
+    expect(result.yaku.some((y) => y.name === "tsuuiisou")).toBe(true);
+    expect(result.yaku.some((y) => y.name === "daishichi")).toBe(true);
   });
 });
 

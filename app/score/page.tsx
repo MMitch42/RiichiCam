@@ -13,7 +13,6 @@ import TileRow from '../components/TileRow';
 import TileGraphic from '../components/TileGraphic';
 import MeldBuilder from '../components/MeldBuilder';
 import TrainingConsentBanner from '../components/TrainingConsentBanner';
-import PWAInstallBanner from '../components/PWAInstallBanner';
 import { ensureWarmedUp, DEFAULT_MODEL_URL } from '@/lib/detection/onnx-detector';
 import { detectIndividual, detectGuided } from '@/lib/detection/on-device';
 
@@ -1704,9 +1703,6 @@ export default function Home() {
           <p className="text-xs" style={{ color: C.textSec }}>Made by Mitchell Magid</p>
         </footer>
       </div>
-
-      {/* ── PWA install banner ──────────────────────────────────────────── */}
-      <PWAInstallBanner />
 
       {/* ── Training consent banner ─────────────────────────────────────── */}
       {showConsentBanner && (

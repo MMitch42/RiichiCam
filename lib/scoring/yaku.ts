@@ -452,6 +452,15 @@ export function detectYakuman(
     const chiitoi = parsed.interp;
     const local = rules.localYaku;
 
+    // Tsuuiisou: all honors. Chiitoitsu only has 7 distinct honor tiles to
+    // draw from, so seven honor pairs are necessarily all seven different
+    // types - this is the same hand daishichi (below) recognizes, but
+    // tsuuiisou is a standard yakuman with no toggle, so it must register
+    // regardless of whether the daishichi local yaku is enabled.
+    if (chiitoi.pairs.every(isHonor)) {
+      yaku.push({ name: "tsuuiisou", nameJa: "字一色", han: 13, isYakuman: true });
+    }
+
     // Daishichi: seven pairs using all seven different honor tiles
     if (local?.daishichi) {
       const pairTiles = chiitoi.pairs;
