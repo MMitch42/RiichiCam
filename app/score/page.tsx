@@ -575,6 +575,18 @@ export default function Home() {
     localStorage.setItem('doubleYakuman', val ? '1' : '0');
   }
 
+  // Kiriage mangan: rounds 4han30fu / 3han60fu up to mangan. Off by default
+  // (WRC/Mahjong Soul); grouped with the other opt-in scoring extras under
+  // "Additional Yaku". Persisted like doubleYakuman.
+  const [kiriageMangan, setKiriageManganState] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem('kiriageMangan') === '1'; } catch { return false; }
+  });
+  function setKiriageMangan(val: boolean) {
+    setKiriageManganState(val);
+    localStorage.setItem('kiriageMangan', val ? '1' : '0');
+  }
+
   // ── Result ────────────────────────────────────────────────────────────────
   const [result, setResult] = useState<ScoreResult | null>(null);
 
@@ -968,7 +980,7 @@ export default function Home() {
   function handleScore() {
     const hand = buildHand();
     if (!hand) return;
-    setResult(score(hand, { localYaku: localYakuConfig, doubleYakuman }));
+    setResult(score(hand, { localYaku: localYakuConfig, doubleYakuman, kiriagemangan: kiriageMangan }));
   }
 
   function handleMeldsChange(newMelds: Meld[]) {
@@ -1512,6 +1524,12 @@ export default function Home() {
               sub="Doubles the hardest-to-hit yakuman waits: kokushi's 13-sided wait, suuankou's tanki wait, and pure (junsei) chuurenpoutou."
               value={doubleYakuman}
               onChange={setDoubleYakuman}
+            />
+            <Toggle
+              label="Kiriage Mangan"
+              sub="Rounds a 4 han 30 fu or 3 han 60 fu hand up to mangan, instead of the raw 7700 / 11600. Standard on Tenhou and many club tables; off for Mahjong Soul."
+              value={kiriageMangan}
+              onChange={setKiriageMangan}
             />
             <div className="mt-1 pt-3" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
               <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: C.gold }}>Local yaku</p>

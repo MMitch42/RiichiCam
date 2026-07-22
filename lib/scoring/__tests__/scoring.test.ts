@@ -375,6 +375,29 @@ describe("mangan thresholds", () => {
     expect(withKiriage.valid || !withKiriage.valid).toBe(true); // just check no crash
   });
 
+  it("kiriage mangan is OFF by default; a 4han30fu hand pays 7700, not mangan", () => {
+    // 234m 234m 567p + 3s3s pair + 6s7s ryanmen on 8s -> riichi + pinfu + tanyao
+    // + iipeiko = 4 han, pinfu ron = 30 fu. Non-dealer ron: 7700 raw, 8000 with
+    // kiriage. The default (DEFAULT_RULES.kiriagemangan) must be off (WRC/
+    // Mahjong Soul), so an un-overridden score() pays 7700.
+    const hand = makeHand(
+      [m(2), m(3), m(4), m(2), m(3), m(4), p(5), p(6), p(7), s(3), s(3), s(6), s(7)],
+      s(8),
+      { winType: "ron", riichi: true, seatWind: "south", roundWind: "east", doraIndicators: [] },
+    );
+    const byDefault = score(hand);
+    expect(byDefault.valid).toBe(true);
+    expect(byDefault.totalHan).toBe(4);
+    expect(byDefault.fu).toBe(30);
+    expect(byDefault.handName).toBeUndefined(); // not mangan
+    expect(byDefault.points.total).toBe(7700);
+
+    // Opting in rounds the same hand up to mangan.
+    const opted = score(hand, { kiriagemangan: true });
+    expect(opted.handName).toBe("mangan");
+    expect(opted.points.total).toBe(8000);
+  });
+
   it("mangan = 8000 basic points (non-dealer ron)", () => {
     // chinitsu = 6 han, which is haneman (12000 basic)
     // Let's use a known mangan: tanyao+riichi+tsumo+iipeiko+pinfu = 5 han

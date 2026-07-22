@@ -162,7 +162,7 @@ export interface RulesConfig {
   /** Open tanyao (default: true - WRC/Mahjong Soul) */
   kuitan: boolean;
 
-  /** 4h30f or 3h60f rounds up to mangan (default: true - standard Japanese club / Tenhou) */
+  /** 4h30f or 3h60f rounds up to mangan (default: false - WRC/Mahjong Soul; on for Tenhou / many club tables) */
   kiriagemangan: boolean;
 
   /** Double yakuman for certain yakuman hands (default: false - treat as single) */
@@ -188,7 +188,7 @@ export interface RulesConfig {
 
 export const DEFAULT_RULES: RulesConfig = {
   kuitan: true,
-  kiriagemangan: true,
+  kiriagemangan: false,
   doubleYakuman: false,
   doubleWindPairFu: 4,
   akaDoraCount: 3,
