@@ -136,14 +136,20 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
     return results;
   }, [selectedTile, selectedIdx, handTiles]);
 
-  // Indices for a pon (selected tile + 2 matching tiles)
+  // Indices for a pon (selected tile + up to 2 matching tiles). Allow declaring
+  // one from just 2 face-up copies: an open pon is 3 tiles but only 2 were ever
+  // in the concealed hand (the 3rd was a called discard), so a scan that misses
+  // the called tile leaves exactly 2 in hand. Mirrors the kan leniency below,
+  // which lets a closed kan be declared from 2 - without this, a hand holding
+  // exactly 2 of a tile could only be turned into a kan, never a pon. The
+  // missing 3rd copy is synthesized on commit.
   const ponIndices = useMemo((): number[] | null => {
     if (!selectedTile) return null;
     const others: number[] = [];
     for (let i = 0; i < handTiles.length && others.length < 2; i++) {
       if (i !== selectedIdx && tilesEqual(handTiles[i], selectedTile)) others.push(i);
     }
-    return others.length >= 2 ? [selectedIdx!, ...others] : null;
+    return others.length >= 1 ? [selectedIdx!, ...others] : null;
   }, [selectedTile, selectedIdx, handTiles]);
 
   // All matching indices (selected tile + its copies in hand), up to a kan's 4.
@@ -171,13 +177,12 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
 
   function commit(type: Meld['type'], indices: number[]) {
     let tiles: Tile[] = indices.map((i) => handTiles[i]);
-    // Fill missing copies when declaring a kan with fewer than 4 in hand: a
-    // closed kan from 2 face-up tiles synthesizes its 2 face-down copies, an
-    // open kan from 3 synthesizes the called 4th. Distinct objects (not one
-    // shared reference) so nothing can alias.
-    if (type.startsWith('kan') && tiles.length < 4) {
-      while (tiles.length < 4) tiles = [...tiles, { suit: tiles[0].suit, value: tiles[0].value } as Tile];
-    }
+    // Fill missing copies when declaring a meld with fewer face-up tiles than it
+    // needs: a pon from 2 synthesizes the called 3rd, a closed kan from 2
+    // synthesizes its 2 face-down copies, an open kan from 3 synthesizes the
+    // called 4th. Distinct objects (not one shared reference) so nothing aliases.
+    const targetLen = type === 'pon' ? 3 : type.startsWith('kan') ? 4 : tiles.length;
+    while (tiles.length < targetLen) tiles = [...tiles, { suit: tiles[0].suit, value: tiles[0].value } as Tile];
     const meld: Meld = { type, tiles: tiles as Meld['tiles'] };
     onHandTilesChange(handTiles.filter((_, i) => !indices.includes(i)));
     onMeldsChange([...melds, meld]);
@@ -280,28 +285,27 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
             );
           })}
 
-          {/* Pon */}
-          {ponIndices && (
-            <MeldOptionCard
-              tiles={ponIndices.map((idx) => handTiles[idx])}
-              type="Pon"
-              highlightIdx={0}
-              onClick={() => commit('pon', ponIndices)}
-            />
-          )}
-
-          {/* Pad a kan's selected tiles up to 4 face-up copies for display. */}
+          {/* Pad a meld's selected tiles up to `n` face-up copies for display. */}
           {(() => {
-            const padTo4 = (indices: number[]): Tile[] => {
+            const padTo = (indices: number[], n: number): Tile[] => {
               const tiles = indices.map((idx) => handTiles[idx]);
-              while (tiles.length < 4) tiles.push({ suit: tiles[0].suit, value: tiles[0].value } as Tile);
+              while (tiles.length < n) tiles.push({ suit: tiles[0].suit, value: tiles[0].value } as Tile);
               return tiles;
             };
             return (
               <>
+                {/* Pon */}
+                {ponIndices && (
+                  <MeldOptionCard
+                    tiles={padTo(ponIndices, 3)}
+                    type="Pon"
+                    highlightIdx={0}
+                    onClick={() => commit('pon', ponIndices)}
+                  />
+                )}
                 {openKanIndices && (
                   <MeldOptionCard
-                    tiles={padTo4(openKanIndices)}
+                    tiles={padTo(openKanIndices, 4)}
                     type="Open Kan"
                     highlightIdx={0}
                     onClick={() => commit('kan-open', openKanIndices)}
@@ -309,7 +313,7 @@ export default function MeldBuilder({ handTiles, melds, onHandTilesChange, onMel
                 )}
                 {closedKanIndices && (
                   <MeldOptionCard
-                    tiles={padTo4(closedKanIndices)}
+                    tiles={padTo(closedKanIndices, 4)}
                     type="Closed Kan"
                     highlightIdx={0}
                     onClick={() => commit('kan-closed', closedKanIndices)}
