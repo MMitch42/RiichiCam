@@ -840,7 +840,7 @@ export default function Home() {
       // overflow - lets the user move the extra tiles into a declared meld
       // via "Declare chi / pon / kan" below instead of losing them outright.
       const tiles: Tile[] = data.tiles;
-      setHandTiles(sortTiles(fillMissingHandWithHaku(tiles)));
+      setHandTiles(sortTiles(fillMissingHandWithHaku(tiles, 13 - 3 * melds.length)));
       if (trainingConsent === null && data.rawPredictions) {
         pendingImages.current.push({ base64, mode: 'hand', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
       }
@@ -933,7 +933,9 @@ export default function Home() {
       // called-meld tiles out of result.hand before this point) - truncating
       // again to the old flat 13/8 would just re-lose real detections a hand
       // with called melds can legitimately produce.
-      if (result.hand.length > 0) setHandTiles(sortTiles(fillMissingHandWithHaku(result.hand)));
+      if (result.hand.length > 0) {
+        setHandTiles(sortTiles(fillMissingHandWithHaku(result.hand, 13 - 3 * result.melds.length)));
+      }
       if (result.winningTile) setWinningTile(result.winningTile);
       if (result.dora.length > 0) setDoraIndicatorTiles(sortTiles(result.dora));
       if (result.melds.length > 0) {
