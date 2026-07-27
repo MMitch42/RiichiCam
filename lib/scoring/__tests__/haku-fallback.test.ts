@@ -65,6 +65,22 @@ describe("fillMissingHandWithHaku", () => {
     expect(countHaku(out)).toBe(2);
   });
 
+  it("respects a smaller target when melds shrink the concealed hand", () => {
+    // A hand with one called pon only needs 10 concealed tiles (13 - 3).
+    // Scanning 8 of those (short by 2 against the *reduced* target, not 13)
+    // should add 2 haku, not treat it as short-by-5 against a flat 13.
+    const eight = eleven().slice(0, 8);
+    const out = fillMissingHandWithHaku(eight, 10);
+    expect(out).toHaveLength(10);
+    expect(countHaku(out)).toBe(2);
+  });
+
+  it("does not fabricate haku once melds already make the hand full", () => {
+    // 10 concealed tiles + one pon (3 tiles) = 13: nothing missing.
+    const ten = [...eleven().slice(0, 9), m(3)];
+    expect(fillMissingHandWithHaku(ten, 10)).toBe(ten);
+  });
+
   it("does not mutate the input array", () => {
     const input = eleven();
     const len = input.length;
