@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { computeLetterbox, unletterboxBox } from '../letterbox';
+import { inferenceTiles, mergeTiledPredictions } from '../tiling';
 
 describe('computeLetterbox', () => {
   it('scales a landscape image down to fit, padding top/bottom', () => {
@@ -45,5 +46,26 @@ describe('unletterboxBox', () => {
     const orig = unletterboxBox(modelBox, info);
     expect(orig.x).toBeCloseTo(0, 3);
     expect(orig.y).toBeCloseTo(0, 3);
+  });
+});
+
+describe('inferenceTiles', () => {
+  it('splits a long hand ROI into overlapping, bounded-aspect windows', () => {
+    expect(inferenceTiles(600, 100)).toEqual([
+      { x: 0, y: 0, width: 200, height: 100 },
+      { x: 160, y: 0, width: 200, height: 100 },
+      { x: 320, y: 0, width: 200, height: 100 },
+      { x: 400, y: 0, width: 200, height: 100 },
+    ]);
+  });
+
+  it('deduplicates an overlapping tile proposal without hiding another class', () => {
+    const prediction = (tileClass: string, confidence: number, x: number) => ({ tileClass, confidence, x, y: 50, width: 40, height: 80 });
+    expect(mergeTiledPredictions([
+      prediction('1m', 0.9, 170), prediction('1m', 0.8, 172), prediction('2m', 0.85, 170),
+    ].map(({ tileClass, ...rest }) => ({ class: tileClass, ...rest })), 0.5)).toEqual([
+      { class: '1m', confidence: 0.9, x: 170, y: 50, width: 40, height: 80 },
+      { class: '2m', confidence: 0.85, x: 170, y: 50, width: 40, height: 80 },
+    ]);
   });
 });

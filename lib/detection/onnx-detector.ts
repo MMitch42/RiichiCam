@@ -5,6 +5,7 @@ import type { RawPrediction } from '../scoring/roboflow-parser';
 import { computeLetterbox } from './letterbox';
 import { decodeYoloOutput } from './decode-yolo-output';
 import { CLASS_NAMES } from './tile-classes';
+import { inferenceTiles, mergeTiledPredictions } from './tiling';
 
 export const DEFAULT_MODEL_URL = '/models/tile-detector.onnx';
 
@@ -91,28 +92,40 @@ export async function detectTiles(
   opts: DetectOptions = {},
 ): Promise<RawPrediction[]> {
   const session = await loadSession(modelUrl);
-  const { tensor, letterbox } = preprocess(image, srcWidth, srcHeight);
-
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
-  const results = await session.run({ [inputName]: tensor });
-  const output = results[outputName];
+  const predictions: RawPrediction[] = [];
 
-  // Expected shape: [1, 4 + numClasses, numAnchors].
-  const [, channels, numAnchors] = output.dims;
-  const numClasses = channels - 4;
-  if (numClasses !== CLASS_NAMES.length) {
-    throw new Error(
-      `Model output has ${numClasses} classes but ${CLASS_NAMES.length} were expected ` +
-      `(${outputName} dims: ${output.dims.join('x')}). Wrong model file or stale export?`,
-    );
+  for (const tile of inferenceTiles(srcWidth, srcHeight)) {
+    const crop = document.createElement('canvas');
+    crop.width = tile.width;
+    crop.height = tile.height;
+    const cropContext = crop.getContext('2d');
+    if (!cropContext) throw new Error('Could not acquire 2D canvas context for tiled preprocessing');
+    cropContext.drawImage(image, tile.x, tile.y, tile.width, tile.height, 0, 0, tile.width, tile.height);
+
+    const { tensor, letterbox } = preprocess(crop, tile.width, tile.height);
+    const results = await session.run({ [inputName]: tensor });
+    const output = results[outputName];
+
+    // Expected shape: [1, 4 + numClasses, numAnchors].
+    const [, channels, numAnchors] = output.dims;
+    const numClasses = channels - 4;
+    if (numClasses !== CLASS_NAMES.length) {
+      throw new Error(
+        `Model output has ${numClasses} classes but ${CLASS_NAMES.length} were expected ` +
+        `(${outputName} dims: ${output.dims.join('x')}). Wrong model file or stale export?`,
+      );
+    }
+
+    predictions.push(...decodeYoloOutput(
+      { data: output.data as Float32Array, numAnchors, numClasses },
+      letterbox,
+      opts,
+    ).map((prediction) => ({ ...prediction, x: prediction.x + tile.x, y: prediction.y + tile.y })));
   }
 
-  return decodeYoloOutput(
-    { data: output.data as Float32Array, numAnchors, numClasses },
-    letterbox,
-    opts,
-  );
+  return mergeTiledPredictions(predictions, opts.iouThreshold ?? 0.5);
 }
 
 // onnxruntime-web doesn't expose which EP a session actually resolved to, so
