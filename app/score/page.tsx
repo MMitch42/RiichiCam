@@ -4,7 +4,6 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { score } from '@/lib/scoring';
 import { sortTiles } from '@/lib/scoring/tiles';
-import { fillMissingHandWithHaku } from '@/lib/scoring/haku-fallback';
 import type { Hand, Meld, ScoreResult, Tile, SuitedValue, WindValue, LocalYakuConfig } from '@/lib/scoring/types';
 import { DEFAULT_LOCAL_YAKU } from '@/lib/scoring/types';
 import CameraCapture from '../components/CameraCapture';
@@ -738,7 +737,7 @@ export default function Home() {
       // overflow - lets the user move the extra tiles into a declared meld
       // via "Declare chi / pon / kan" below instead of losing them outright.
       const tiles: Tile[] = data.tiles;
-      setHandTiles(sortTiles(fillMissingHandWithHaku(tiles, 13 - 3 * melds.length)));
+      setHandTiles(sortTiles(tiles));
       if (trainingConsent === null && data.rawPredictions) {
         pendingImages.current.push({ base64, mode: 'hand', predictions: data.rawPredictions, timestamp: new Date().toISOString().replace(/[:.]/g, '-') });
       }
@@ -825,7 +824,7 @@ export default function Home() {
       // again to the old flat 13/8 would just re-lose real detections a hand
       // with called melds can legitimately produce.
       if (result.hand.length > 0) {
-        setHandTiles(sortTiles(fillMissingHandWithHaku(result.hand, 13 - 3 * result.melds.length)));
+        setHandTiles(sortTiles(result.hand));
       }
       if (result.winningTile) setWinningTile(result.winningTile);
       if (result.dora.length > 0) setDoraIndicatorTiles(sortTiles(result.dora));
