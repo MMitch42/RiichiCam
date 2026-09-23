@@ -162,13 +162,14 @@ export async function detectGuided(
     // a small band of the square model input. These exact source-pixel crops
     // retain every drawn pixel, then detectTiles applies overlapping slices
     // only if a crop is itself extremely wide or tall.
-    const perSection = await Promise.all(Object.values(params.sections).map((section) =>
-      detectTilesInRegion(
+    const perSection: RawPrediction[][] = [];
+    for (const section of Object.values(params.sections)) {
+      perSection.push(await detectTilesInRegion(
         params.modelUrl,
         img,
         normalizedRegionBounds(section, img.naturalWidth, img.naturalHeight),
-      ),
-    ));
+      ));
+    }
     const rawPredictions = mergeTiledPredictions(perSection.flat(), 0.5);
     // The pixels were already selected by their exact visible section bounds;
     // do not re-expand those bounds while assigning the restored detections.

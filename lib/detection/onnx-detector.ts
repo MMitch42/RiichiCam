@@ -181,9 +181,14 @@ export async function detectTilesAcrossPhoto(
   sourceHeight: number,
   opts: DetectOptions = {},
 ): Promise<RawPrediction[]> {
-  const groups = await Promise.all(coverageWindows(sourceWidth, sourceHeight).map((region) =>
-    detectTilesInRegion(modelUrl, image, region, opts),
-  ));
+  // A single ORT session backs every window. Concurrent session.run() calls
+  // work on some desktop providers but can reject or crash WebGPU/the proxied
+  // WASM worker on phones, which used to surface only as the generic scanner
+  // unavailable message. Keep the memory and execution queue bounded instead.
+  const groups: RawPrediction[][] = [];
+  for (const region of coverageWindows(sourceWidth, sourceHeight)) {
+    groups.push(await detectTilesInRegion(modelUrl, image, region, opts));
+  }
   return mergeTiledPredictions(groups.flat(), opts.iouThreshold ?? 0.5);
 }
 
