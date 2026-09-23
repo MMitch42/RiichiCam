@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { score } from '@/lib/scoring';
 import { sortTiles } from '@/lib/scoring/tiles';
@@ -13,14 +13,7 @@ import TileRow from '../components/TileRow';
 import TileGraphic from '../components/TileGraphic';
 import MeldBuilder from '../components/MeldBuilder';
 import TrainingConsentBanner from '../components/TrainingConsentBanner';
-import { ensureWarmedUp, DEFAULT_MODEL_URL } from '@/lib/detection/onnx-detector';
-import { detectIndividual, detectGuided } from '@/lib/detection/on-device';
-
-// useLayoutEffect warns "does nothing on the server" during SSR; this swaps
-// to useEffect there since layout effects are meaningless without a DOM to
-// lay out. Client side, useLayoutEffect is the actual point -- see its call
-// site for why.
-const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+import { detectIndividual, detectGuided } from '@/lib/detection/server';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -589,98 +582,6 @@ export default function Home() {
   // ── Result ────────────────────────────────────────────────────────────────
   const [result, setResult] = useState<ScoreResult | null>(null);
 
-  // ── On-device detection warm-up ───────────────────────────────────────────
-  // Real-device measurement: first inference in a session costs ~30s (WASM
-  // fetch + WebGPU shader compile), every inference after that ~200ms.
-  // Kicking this off as soon as the page mounts (rather than lazily on
-  // first scan) means that cost is almost always hidden behind however long
-  // the user spends framing their photo. (Tried triggering this even
-  // earlier, from the root layout, so it'd also cover time spent on the
-  // landing page -- reverted: onnxruntime-web is heavy enough that a static
-  // import in the layout put it in every page's critical bundle, including
-  // pages that never touch detection at all, and next/dynamic's ssr:false
-  // didn't actually get Turbopack to split it back out. Not worth that cost
-  // for a marginal head start when /score is typically the very next page
-  // anyway.) ensureWarmedUp is idempotent, so this is also safe against
-  // React StrictMode's double-effect-invocation in dev.
-  //
-  // Three states, not a boolean. 'warming' shows an informational note but no
-  // longer blocks anything: a scan tapped mid-warm-up waits via
-  // ensureReadyForScan(), and manual entry is always available. A genuine
-  // warm-up FAILURE (unsupported browser, model fetch failure) resolves to
-  // 'failed', which makes ensureReadyForScan() return false so
-  // detectIndividual/detectGuided surface a clear "enter manually" message
-  // instead of attempting a doomed on-device call.
-  const [warmupState, setWarmupState] = useState<'warming' | 'ready' | 'failed'>('warming');
-  // The ~30s figure only applies to a genuinely cold load (no cached model/
-  // wasm yet). localStorage can't be read during SSR, so whatever this
-  // defaults to is necessarily what gets server-rendered and briefly shown
-  // before hydration corrects it -- there's no effect-scheduling trick that
-  // avoids that gap entirely (useLayoutEffect only prevents a SECOND flash
-  // after hydration; it can't make hydration itself instant). So default to
-  // 'true' (short message) rather than 'false': repeat visits are the
-  // common case, and this way a returning visitor's message is correct
-  // from the very first paint. The remaining gap only affects genuine
-  // first-time visitors, briefly showing the short message before
-  // upgrading to the fuller explanation -- a much less confusing direction
-  // than confidently claiming "one-time" to someone who's seen this
-  // dozens of times.
-  const [hasWarmedBefore, setHasWarmedBefore] = useState(true);
-  useIsomorphicLayoutEffect(() => {
-    if (localStorage.getItem('onnxWarmedBefore') !== '1') setHasWarmedBefore(false);
-  }, []);
-  useEffect(() => {
-    let cancelled = false;
-    // Cap the warm-up so the "getting the scanner ready" banner can never stick
-    // forever if warm-up hangs (rather than resolving or rejecting) - e.g. a
-    // wedged model fetch or a worker that never comes up on some device. On
-    // timeout we fall to 'failed', which clears the banner and routes scans to
-    // the "enter manually" message; on-device detection stays retryable because
-    // the underlying ensureWarmedUp promise keeps running and a later scan can
-    // still await it via ensureReadyForScan.
-    const failTimer = setTimeout(() => {
-      if (!cancelled) setWarmupState((s) => (s === 'warming' ? 'failed' : s));
-    }, 90000);
-    ensureWarmedUp(DEFAULT_MODEL_URL)
-      .then(() => {
-        if (!cancelled) {
-          setWarmupState('ready');
-          localStorage.setItem('onnxWarmedBefore', '1');
-        }
-      })
-      .catch(() => { if (!cancelled) setWarmupState('failed'); })
-      .finally(() => clearTimeout(failTimer));
-    return () => { cancelled = true; clearTimeout(failTimer); };
-  }, []);
-
-  // A scan tapped before warm-up finishes waits for it rather than being
-  // blocked, but only up to a bound: if warm-up hasn't completed within
-  // SCAN_WARMUP_WAIT_MS the scan gives up and routes to the "enter manually"
-  // message instead of spinning indefinitely. Without this cap a stuck or
-  // pathologically slow warm-up left the scan button spinning forever - the
-  // "scanner stuck loading" symptom. The wait is non-destructive: warm-up keeps
-  // going in the background (warmupState still flips to 'ready' when it lands),
-  // so a later scan tap succeeds. Manual entry stays available throughout since
-  // it never touches this path, and ONNX now runs in a worker (see
-  // onnx-detector.ts) so this wait never freezes the UI.
-  const SCAN_WARMUP_WAIT_MS = 60000;
-  async function ensureReadyForScan(): Promise<boolean> {
-    if (warmupState === 'ready') return true;
-    if (warmupState === 'failed') return false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('warmup-wait-timeout')), SCAN_WARMUP_WAIT_MS);
-      });
-      await Promise.race([ensureWarmedUp(DEFAULT_MODEL_URL), timeout]);
-      return true;
-    } catch {
-      return false;
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
-
   // ── Training data consent ─────────────────────────────────────────────────
   const sessionId = useRef(crypto.randomUUID());
   const [trainingConsent, setTrainingConsent] = useState<'granted' | 'denied' | null>(null);
@@ -820,10 +721,7 @@ export default function Home() {
     setHandImageUrl(`data:image/jpeg;base64,${base64}`);
     setResult(null);
     try {
-      const ready = await ensureReadyForScan();
       const data = await detectIndividual({
-        onDeviceReady: ready,
-        modelUrl: DEFAULT_MODEL_URL,
         base64,
         mode: 'hand',
         save: trainingConsent === 'granted',
@@ -859,10 +757,7 @@ export default function Home() {
     setDoraPaletteForced(true);
     setDoraImageUrl(`data:image/jpeg;base64,${base64}`);
     try {
-      const ready = await ensureReadyForScan();
       const data = await detectIndividual({
-        onDeviceReady: ready,
-        modelUrl: DEFAULT_MODEL_URL,
         base64,
         mode: 'dora',
         save: trainingConsent === 'granted',
@@ -911,13 +806,9 @@ export default function Home() {
     }
 
     try {
-      const ready = await ensureReadyForScan();
       const result = await detectGuided({
-        onDeviceReady: ready,
-        modelUrl: DEFAULT_MODEL_URL,
         base64: data.fullImage,
         sections: data.sections,
-        isLandscape: data.isLandscape,
         save: trainingConsent === 'granted',
         sessionId: sessionId.current,
         returnRawPredictions: trainingConsent === null,
@@ -1068,23 +959,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {warmupState === 'warming' && (
-          <div
-            className="rounded-sm px-4 py-3 flex items-center gap-3 -mx-4"
-            style={{ background: C.surface, border: `1px solid ${C.goldBorderSm}` }}
-          >
-            <div
-              className="flex-shrink-0 rounded-full animate-spin"
-              style={{ width: 16, height: 16, border: `2px solid ${C.goldBorderSm}`, borderTopColor: C.gold }}
-            />
-            <p className="text-xs leading-relaxed" style={{ color: C.textSec }}>
-              {hasWarmedBefore
-                ? 'Getting the scanner ready. You can enter tiles manually in the meantime.'
-                : 'Getting the scanner ready (about 30 seconds the first time). You can enter tiles manually in the meantime.'}
-            </p>
-          </div>
-        )}
 
         {/* ── Hand scan ─────────────────────────────────────────────────── */}
         <section

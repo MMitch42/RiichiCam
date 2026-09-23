@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <Link href="/" style={s.a}>← Back to RiichiCam</Link>
 
       <h1 style={s.h1}>Privacy Policy</h1>
-      <p style={s.meta}>Last updated: July 21, 2026</p>
+      <p style={s.meta}>Last updated: September 22, 2026</p>
 
       <p style={s.p}>
         RiichiCam is a free, open-source riichi mahjong scoring tool. This policy explains what
@@ -34,8 +34,9 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>1. What we collect</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Camera images</strong>: Tile detection runs entirely on your device, so
-          photos are <em>never sent to our servers</em> unless you explicitly opt in to
+          <strong>Camera images</strong>: When you use tile detection, the photo is sent
+          through RiichiCam&apos;s hosting provider to our private inference server solely to
+          identify tiles. Detection images are not retained unless you explicitly opt in to
           contribute them as training data (see §3 below).
         </li>
         <li>
@@ -63,9 +64,9 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>2. Camera access and image processing</h2>
       <p style={s.p}>
         Camera access is requested only when you use the tile-scanning feature and is never
-        active in the background. Tile detection runs locally in your browser using an
-        on-device model; your photo is processed on your device and is never uploaded to our
-        servers unless you opt in to contribute it as training data (see §3).
+        active in the background. The image is sent over HTTPS to a private RiichiCam inference
+        service, which returns detected tile labels and does not store the image. Images may
+        also pass through our hosting provider while the request is processed.
       </p>
       <p style={s.p}>
         Images may incidentally capture your hands or surroundings. We do not use these images
@@ -105,8 +106,9 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>5. Third-party services</h2>
       <ul style={s.ul}>
         <li>
-          <strong>On-device detection</strong>: Tile detection runs directly in your
-          browser. Your photo is never sent to a server for detection.
+          <strong>Private inference service</strong>: Tile detection runs on a private
+          RiichiCam server. It receives the image only for the duration of detection and returns
+          tile predictions; model files and detection images are not publicly accessible.
         </li>
         <li>
           <strong>Vercel</strong>: Hosting, serverless functions, Blob storage, and
@@ -123,8 +125,8 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>6. Data retention</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Detection images (not opted-in)</strong>: Never leave your device.
-          Detection runs on-device, so there is nothing on our servers to retain.
+          <strong>Detection images (not opted-in)</strong>: Sent only to perform the requested
+          scan and not retained by RiichiCam after the response is returned.
         </li>
         <li>
           <strong>Training images (opted-in)</strong>: Retained indefinitely for model

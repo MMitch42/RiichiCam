@@ -1,0 +1,2 @@
+"""RiichiCam cloud inference service."""
+

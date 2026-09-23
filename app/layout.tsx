@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import Script from "next/script";
+import GuidedScanUpdateNotice from "./components/GuidedScanUpdateNotice";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import "./globals.css";
 
@@ -57,21 +58,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <PWAInstallBanner />
+        <GuidedScanUpdateNotice />
         {children}
         <Analytics />
         <Script id="sw-register" strategy="afterInteractive">{`
-          // Ask the browser to keep our Cache Storage from being evicted under
-          // storage pressure. The ~80MB ONNX model lives in the SW cache; on
-          // storage-constrained budget devices, best-effort (non-persistent)
-          // storage gets evicted between sessions, which forces a full model
-          // re-download every visit (multi-minute loads on mobile). Persisted
-          // storage survives eviction, so the model stays cached. Silent no-op
-          // where unsupported or not granted.
-          if (navigator.storage && navigator.storage.persist) {
-            navigator.storage.persisted().then(function (already) {
-              if (!already) navigator.storage.persist();
-            }).catch(function () {});
-          }
           if ('serviceWorker' in navigator) {
             // Auto-update: when an updated service worker takes control, reload
             // once so the running page switches to the new build with no user

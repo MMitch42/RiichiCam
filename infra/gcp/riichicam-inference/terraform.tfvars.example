@@ -1,0 +1,13 @@
+project_id           = "riichicast"
+container_image      = "us-central1-docker.pkg.dev/riichicast/riichicam/inference@sha256:replace-me"
+model_version        = "riichicast-v2"
+model_class_profile  = "riichicast-v2"
+vercel_team_slug     = "mmitch42s-projects"
+vercel_project_name  = "riichi-cam"
+vercel_environment   = "production"
+
+# Scale to zero until real traffic and cold-start measurements justify otherwise.
+min_instances = 0
+max_instances = 1
+cpu           = "2"
+memory        = "2Gi"

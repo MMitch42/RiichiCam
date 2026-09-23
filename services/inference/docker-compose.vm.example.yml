@@ -1,0 +1,26 @@
+services:
+  inference:
+    build:
+      context: ../..
+      dockerfile: services/inference/Dockerfile
+    image: riichicam-inference:v12
+    restart: unless-stopped
+    gpus: all
+    cpus: 2.0
+    mem_limit: 4g
+    environment:
+      MODEL_PATH: /models/riichicam_yolo26s_v12_best.onnx
+      MODEL_CLASS_PROFILE: riichicast-v2
+      MODEL_VERSION: riichicam-yolo26s-v12
+      INFERENCE_UPSTREAM_TOKEN: ${INFERENCE_UPSTREAM_TOKEN:?set this in .env}
+      REQUIRE_CUDA: "true"
+    volumes:
+      - /home/ubuntu/riichicast-private/models/riichicam_yolo26s_v12_best.onnx:/models/riichicam_yolo26s_v12_best.onnx:ro
+    ports:
+      - "127.0.0.1:8081:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/readyz')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

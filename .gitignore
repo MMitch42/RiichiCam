@@ -30,4 +30,17 @@ next-env.d.ts
 
 # onnxruntime-web runtime (wasm binaries regenerated from node_modules on install)
 /public/ort/
+
+# Private server models are staged only for authenticated Cloud Build uploads.
+# Never commit RiichiCast model weights to the public RiichiCam repository.
+/services/inference/models/*.onnx
 __pycache__/
+.venv/
+.pytest_cache/
+
+# Terraform local state and provider downloads
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+**/terraform.tfvars

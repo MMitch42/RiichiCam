@@ -1,0 +1,15 @@
+.git
+.github
+.next
+.vercel
+node_modules
+public/ort
+.env
+.env.*
+!.env.example
+**/.DS_Store
+**/__pycache__
+**/.pytest_cache
+**/.terraform
+**/*.tfstate*
+

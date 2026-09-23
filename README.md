@@ -2,7 +2,11 @@
 
 Riichi mahjong hand scorer with camera tile detection. Scan your hand, confirm conditions, get a full score breakdown: fu, han, yaku list, and payment table.
 
-Built with Next.js App Router, TypeScript, Tailwind CSS, and ONNX Runtime Web for on-device tile detection. Deployed on Vercel.
+Built with Next.js App Router, TypeScript, Tailwind CSS, and a private CUDA inference service. Deployed on Vercel.
+
+A standalone V100 inference service is in `services/inference/`. The browser sends
+scan images to RiichiCam's Vercel broker, which authenticates to the private service;
+the V12 model is never shipped to browsers.
 
 **[Live app](http://riichicam.com) · [Give feedback](mailto:support.riichicam@gmail.com?subject=RiichiCam%20Feedback)**
 
@@ -11,7 +15,7 @@ Built with Next.js App Router, TypeScript, Tailwind CSS, and ONNX Runtime Web fo
 ## Features
 
 - **Guided scan:** one shot captures hand, winning tile, and dora/ura dora simultaneously using bounding box overlays
-- **Camera detection:** on-device object detection model (ONNX Runtime Web, WebGPU with a WASM fallback) detects tiles from a photo; your images never leave your device. Individual scans also supported for hand and dora separately
+- **Camera detection:** private GPU-backed object detection identifies tiles from a photo; images are processed only for the scan and not retained unless you opt in to training-data contribution. Individual scans also supported for hand and dora separately
 - **Flash toggle:** torch on/off button in the guided camera overlay (on supported devices)
 - **Manual input:** tap tiles from the full palette if preferred, including red 5 (aka dora) variants
 - **Meld support:** declare chi, pon, and kan; kan auto-fills the 4th tile if you have 3 in hand
@@ -57,7 +61,8 @@ const result: ScoreResult = score(hand, { kuitan: false, kiriagemangan: true });
 | `doubleWindPairFu` | `4` | Mahjong Soul default |
 | `akaDoraCount` | `3` | One per suit |
 
-113 tests via Vitest, covering scoring, fu/points, and on-device detection (preprocessing, NMS, decoding).
+Server and scoring tests cover scoring, fu/points, detection post-processing, and the
+private inference broker.
 
 ---
 
@@ -70,22 +75,19 @@ npm run build    # production build
 npm test         # test suite (vitest)
 ```
 
-`npm install` also copies the ONNX Runtime Web WASM/WebGPU binaries into
-`public/ort/` (see `scripts/copy-onnx-runtime.js`); that folder is generated,
-not committed.
-
-The detection model itself is committed at `public/models/tile-detector.onnx`
-(a YOLO11 model exported to ONNX). To swap in a different export, replace
-that file and update `DEFAULT_MODEL_URL` in `lib/detection/onnx-detector.ts`
-if the filename changes; the class order it outputs must match
-`CLASS_NAMES` in `lib/detection/tile-classes.ts` exactly, or detections will
-be silently mislabeled.
+The browser no longer loads the production detector model. The private V12 model
+is mounted read-only into the VM container; see
+[`services/inference/README.md`](services/inference/README.md) for the existing-host
+Caddy/HTTPS deployment steps.
 
 Copy `.env.example` to `.env.local` if you want the optional pieces:
 
 ```
 GEMINI_API_KEY=
 BLOB_READ_WRITE_TOKEN=
+RIICHICAM_SERVER_INFERENCE_ENABLED=false
+RIICHICAM_INFERENCE_URL=
+RIICHICAM_INFERENCE_TOKEN=
 ```
 
 A Gemini-based vision pipeline is preserved at `app/api/detect-gemini/route.ts`
@@ -93,6 +95,11 @@ as a drop-in alternative, not wired into the main flow (requires
 `GEMINI_API_KEY`). `BLOB_READ_WRITE_TOKEN` enables optional training-data
 image storage via Vercel Blob (`/api/save-training`), gated behind user
 consent in the app.
+
+`/api/detect-server` is the server-only broker between the browser and the
+private VM. It returns `503` unless `RIICHICAM_SERVER_INFERENCE_ENABLED=true`
+and forwards only to `RIICHICAM_INFERENCE_URL` using the server-only
+`RIICHICAM_INFERENCE_TOKEN`. Never prefix either value with `NEXT_PUBLIC_`.
 
 ---
 
@@ -103,10 +110,11 @@ app/
   page.tsx                      # main UI: tile input, conditions, score display
   layout.tsx                    # root layout
   globals.css                   # design tokens (dark slate + gold)
-  score/page.tsx                # scanning + scoring flow, on-device detection wiring
+  score/page.tsx                # scanning + scoring flow, private-server detection wiring
   debug/onnx/page.tsx            # internal-only harness for testing the detector directly
   api/
     detect-gemini/route.ts       # alternative inference route (Gemini), not wired into the main flow
+    detect-server/route.ts       # authenticated Vercel broker for private VM inference
     save-training/route.ts       # optional training-data image storage (Vercel Blob)
   components/
     CameraCapture.tsx           # scan button + camera/library/paste menu
@@ -122,21 +130,16 @@ lib/scoring/
   yaku.ts                       # detectYaku() + detectYakuman()
   fu.ts                         # calculateFu()
   points.ts                     # calculatePoints(), payment table
-  roboflow-parser.ts            # detection label -> Tile mapping (name is historical; used by the on-device path too)
+  roboflow-parser.ts            # detection label -> Tile mapping (name is historical)
   gemini-parser.ts              # Gemini response -> Tile mapping
   __tests__/
     scoring.test.ts
 lib/detection/
-  onnx-detector.ts              # session loading, warm-up, preprocessing, inference
-  decode-yolo-output.ts         # raw model output -> predictions (confidence filter, class mapping)
-  nms.ts                        # non-max suppression
-  letterbox.ts                  # image resize/pad math for model input
+  server.ts                     # browser client for the authenticated detection broker
   sections.ts                   # buckets predictions into hand/winning/dora for guided scan
-  tile-classes.ts               # the model's class index -> label order (must match the export exactly)
-  on-device.ts                  # detectIndividual/detectGuided, the public entry points /score calls
   __tests__/
-scripts/
-  copy-onnx-runtime.js          # copies ONNX Runtime Web's wasm/webgpu files into public/ort/ on install
+services/inference/
+  docker-compose.vm.example.yml  # isolated V100 + Caddy/HTTPS deployment
 ```
 
 ---
@@ -146,4 +149,5 @@ scripts/
 **Tile graphics:** [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles).
 SVG tile images used in the tile picker and score display. Released into the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-**Detection dataset:** the on-device model was trained on a mahjong tile dataset originally sourced via [Roboflow Universe](https://universe.roboflow.com), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Detection itself runs entirely on-device; no third-party inference service is used.
+**Detection service:** RiichiCam's production detector is hosted privately. The model is
+not distributed to browsers; only detection results are returned.
