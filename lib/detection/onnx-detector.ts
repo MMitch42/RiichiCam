@@ -95,16 +95,25 @@ export async function detectTiles(
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
   const predictions: RawPrediction[] = [];
+  const tiles = inferenceTiles(srcWidth, srcHeight);
 
-  for (const tile of inferenceTiles(srcWidth, srcHeight)) {
-    const crop = document.createElement('canvas');
-    crop.width = tile.width;
-    crop.height = tile.height;
-    const cropContext = crop.getContext('2d');
-    if (!cropContext) throw new Error('Could not acquire 2D canvas context for tiled preprocessing');
-    cropContext.drawImage(image, tile.x, tile.y, tile.width, tile.height, 0, 0, tile.width, tile.height);
+  for (const tile of tiles) {
+    // Keep the established single-image path allocation-free. Camera photos
+    // can be 12MP or larger; copying every ordinary scan into another canvas
+    // risks exhausting a phone's graphics memory before preprocessing even
+    // starts. A separate source canvas is needed only for a real tiled crop.
+    let tileImage: CanvasImageSource = image;
+    if (tiles.length > 1) {
+      const crop = document.createElement('canvas');
+      crop.width = tile.width;
+      crop.height = tile.height;
+      const cropContext = crop.getContext('2d');
+      if (!cropContext) throw new Error('Could not acquire 2D canvas context for tiled preprocessing');
+      cropContext.drawImage(image, tile.x, tile.y, tile.width, tile.height, 0, 0, tile.width, tile.height);
+      tileImage = crop;
+    }
 
-    const { tensor, letterbox } = preprocess(crop, tile.width, tile.height);
+    const { tensor, letterbox } = preprocess(tileImage, tile.width, tile.height);
     const results = await session.run({ [inputName]: tensor });
     const output = results[outputName];
 

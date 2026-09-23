@@ -50,6 +50,12 @@ describe('unletterboxBox', () => {
 });
 
 describe('inferenceTiles', () => {
+  it('leaves ordinary camera photos as one inference image', () => {
+    expect(inferenceTiles(4032, 3024)).toEqual([
+      { x: 0, y: 0, width: 4032, height: 3024 },
+    ]);
+  });
+
   it('splits a long hand ROI into overlapping, bounded-aspect windows', () => {
     expect(inferenceTiles(600, 100)).toEqual([
       { x: 0, y: 0, width: 200, height: 100 },
