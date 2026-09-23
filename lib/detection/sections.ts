@@ -36,6 +36,7 @@ export function splitBySection(
   sections: Partial<Record<'hand' | 'winning' | 'dora' | 'meld', SectionBox>>,
   imgWidth: number,
   imgHeight: number,
+  padding = 0.02,
 ): SplitResult {
   const result: SplitResult = { hand: [], winningTile: null, dora: [], melds: [] };
   // Tiles placed in the melds region that couldn't be resolved into a
@@ -48,7 +49,7 @@ export function splitBySection(
 
   // Expand each section box by 2% on every side so tiles whose centres land
   // just outside the drawn overlay boundary aren't silently dropped.
-  const PAD = 0.02;
+  const PAD = Math.max(0, padding);
 
   for (const [key, box] of Object.entries(sections) as [string, SectionBox][]) {
     const x1 = Math.max(0, (box.x - PAD) * imgWidth);

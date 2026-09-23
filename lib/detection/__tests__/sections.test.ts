@@ -63,6 +63,18 @@ describe('splitBySection', () => {
     expect(result.hand).toEqual([]);
   });
 
+  it('can use exact visible bounds after section-local inference', () => {
+    const predictions = [pred(95, 100, '1m')];
+    const result = splitBySection(
+      predictions,
+      { hand: { x: 0.1, y: 0, w: 0.4, h: 1 } },
+      1000,
+      1000,
+      0,
+    );
+    expect(result.hand).toEqual([]);
+  });
+
   it('hand and dora have a generous safety-valve ceiling, not a fake structural cap', () => {
     // These ceilings (18 hand, 12 dora) exist only to bound a malfunctioning
     // detector's noise, not to enforce the real 13-tile hand shape - that's

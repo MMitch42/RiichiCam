@@ -7,6 +7,31 @@ export interface InferenceTile {
   height: number;
 }
 
+export interface NormalizedRegion {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Convert a visible normalized ROI into the exact pixel rectangle that Canvas
+ * will crop. Lower bounds round down and upper bounds round up, so a box
+ * never becomes shorter than the operator drew because of fractional pixels.
+ */
+export function normalizedRegionBounds(
+  region: NormalizedRegion,
+  sourceWidth: number,
+  sourceHeight: number,
+): InferenceTile {
+  const clamp = (value: number, limit: number) => Math.max(0, Math.min(limit, value));
+  const x1 = clamp(Math.floor(region.x * sourceWidth), sourceWidth);
+  const y1 = clamp(Math.floor(region.y * sourceHeight), sourceHeight);
+  const x2 = clamp(Math.ceil((region.x + region.w) * sourceWidth), sourceWidth);
+  const y2 = clamp(Math.ceil((region.y + region.h) * sourceHeight), sourceHeight);
+  return { x: x1, y: y1, width: Math.max(0, x2 - x1), height: Math.max(0, y2 - y1) };
+}
+
 /**
  * Break an extreme-aspect image into overlapping windows before it is
  * letterboxed into the model's square input. A long hand row otherwise gets
@@ -36,6 +61,39 @@ export function inferenceTiles(
   return starts.map((start) => horizontal
     ? { x: start, y: 0, width: tileLength, height }
     : { x: 0, y: start, width, height: tileLength });
+}
+
+/**
+ * Overlapping, smaller views that collectively cover a regular camera photo.
+ * A hand row can be tiny inside a 4:3 photo even though the photo itself is
+ * not extreme enough to trigger aspect-ratio tiling. These windows preserve
+ * every source pixel while giving those tiles more model resolution.
+ */
+export function coverageWindows(
+  width: number,
+  height: number,
+  windowFraction = 0.6,
+  overlapFraction = 0.2,
+): InferenceTile[] {
+  if (width <= 0 || height <= 0) return [];
+  const fraction = Math.min(Math.max(windowFraction, 0.1), 1);
+  const overlap = Math.min(Math.max(overlapFraction, 0), 0.9);
+  const windowWidth = Math.max(1, Math.round(width * fraction));
+  const windowHeight = Math.max(1, Math.round(height * fraction));
+  const starts = (fullSize: number, windowSize: number) => {
+    if (windowSize >= fullSize) return [0];
+    const stride = Math.max(1, Math.round(windowSize * (1 - overlap)));
+    const values = Array.from(
+      { length: Math.floor((fullSize - windowSize) / stride) + 1 },
+      (_, index) => index * stride,
+    );
+    const last = fullSize - windowSize;
+    if (values[values.length - 1] !== last) values.push(last);
+    return values;
+  };
+  return starts(height, windowHeight).flatMap((y) =>
+    starts(width, windowWidth).map((x) => ({ x, y, width: windowWidth, height: windowHeight })),
+  );
 }
 
 function iou(a: RawPrediction, b: RawPrediction): number {

@@ -5,7 +5,7 @@ import type { RawPrediction } from '../scoring/roboflow-parser';
 import { computeLetterbox } from './letterbox';
 import { decodeYoloOutput } from './decode-yolo-output';
 import { CLASS_NAMES } from './tile-classes';
-import { inferenceTiles, mergeTiledPredictions } from './tiling';
+import { coverageWindows, inferenceTiles, mergeTiledPredictions, type InferenceTile } from './tiling';
 
 export const DEFAULT_MODEL_URL = '/models/tile-detector.onnx';
 
@@ -126,6 +126,56 @@ export async function detectTiles(
   }
 
   return mergeTiledPredictions(predictions, opts.iouThreshold ?? 0.5);
+}
+
+/**
+ * Detect an exact rectangular ROI from a larger image and restore every
+ * proposal to full-image coordinates. Guided Scan uses this before tiling so
+ * a wide Hand or Dora box is never reduced to a thin strip of the full photo.
+ */
+export async function detectTilesInRegion(
+  modelUrl: string,
+  image: CanvasImageSource,
+  region: InferenceTile,
+  opts: DetectOptions = {},
+): Promise<RawPrediction[]> {
+  if (region.width < 1 || region.height < 1) return [];
+  const crop = document.createElement('canvas');
+  crop.width = region.width;
+  crop.height = region.height;
+  const context = crop.getContext('2d');
+  if (!context) throw new Error('Could not acquire 2D canvas context for ROI preprocessing');
+  context.drawImage(
+    image,
+    region.x,
+    region.y,
+    region.width,
+    region.height,
+    0,
+    0,
+    region.width,
+    region.height,
+  );
+  return (await detectTiles(modelUrl, crop, region.width, region.height, opts))
+    .map((prediction) => ({ ...prediction, x: prediction.x + region.x, y: prediction.y + region.y }));
+}
+
+/**
+ * Run a conventional camera photo through overlapping smaller views. Unlike
+ * cropping to an assumed hand row, the windows cover the complete photo, so
+ * this gains resolution without ever losing tiles at an edge or off-center.
+ */
+export async function detectTilesAcrossPhoto(
+  modelUrl: string,
+  image: CanvasImageSource,
+  sourceWidth: number,
+  sourceHeight: number,
+  opts: DetectOptions = {},
+): Promise<RawPrediction[]> {
+  const groups = await Promise.all(coverageWindows(sourceWidth, sourceHeight).map((region) =>
+    detectTilesInRegion(modelUrl, image, region, opts),
+  ));
+  return mergeTiledPredictions(groups.flat(), opts.iouThreshold ?? 0.5);
 }
 
 // onnxruntime-web doesn't expose which EP a session actually resolved to, so

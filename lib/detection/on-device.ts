@@ -2,8 +2,9 @@
 
 import { parsePredictions, type RawPrediction } from '../scoring/roboflow-parser';
 import type { Tile, Meld } from '../scoring/types';
-import { detectTiles } from './onnx-detector';
+import { detectTilesAcrossPhoto, detectTilesInRegion } from './onnx-detector';
 import { splitBySection, type SectionBox } from './sections';
+import { mergeTiledPredictions, normalizedRegionBounds } from './tiling';
 
 // Wraps the on-device detector with the same response contract the old
 // Roboflow-backed /api/detect route had, so /score's capture handlers didn't
@@ -96,7 +97,16 @@ export async function detectIndividual(
 
   try {
     const img = await base64ToImage(params.base64);
-    const rawPredictions = await detectTiles(params.modelUrl, img, img.naturalWidth, img.naturalHeight);
+    // A normal camera photo often has a hand row in only a small portion of a
+    // 4:3 or 16:9 frame. Cover it with overlapping windows rather than making
+    // a guess at where the hand is; every source pixel remains in at least one
+    // model input and duplicate seam proposals are merged afterward.
+    const rawPredictions = await detectTilesAcrossPhoto(
+      params.modelUrl,
+      img,
+      img.naturalWidth,
+      img.naturalHeight,
+    );
     const tiles = parsePredictions(rawPredictions);
 
     if (tiles.length < 1) {
@@ -147,8 +157,22 @@ export async function detectGuided(
 
   try {
     const img = await base64ToImage(params.base64);
-    const rawPredictions = await detectTiles(params.modelUrl, img, img.naturalWidth, img.naturalHeight);
-    const split = splitBySection(rawPredictions, params.sections, img.naturalWidth, img.naturalHeight);
+    // Infer each visible Guided Scan box independently. Splitting a detection
+    // from a full-photo pass after the fact makes a long Hand ROI occupy only
+    // a small band of the square model input. These exact source-pixel crops
+    // retain every drawn pixel, then detectTiles applies overlapping slices
+    // only if a crop is itself extremely wide or tall.
+    const perSection = await Promise.all(Object.values(params.sections).map((section) =>
+      detectTilesInRegion(
+        params.modelUrl,
+        img,
+        normalizedRegionBounds(section, img.naturalWidth, img.naturalHeight),
+      ),
+    ));
+    const rawPredictions = mergeTiledPredictions(perSection.flat(), 0.5);
+    // The pixels were already selected by their exact visible section bounds;
+    // do not re-expand those bounds while assigning the restored detections.
+    const split = splitBySection(rawPredictions, params.sections, img.naturalWidth, img.naturalHeight, 0);
 
     if (params.save) {
       saveTrainingImageOnDevice(
