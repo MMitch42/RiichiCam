@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 
 // Change this identifier for each release announcement. A browser sees each
 // announcement version once, independently of PWA/service-worker updates.
-const ANNOUNCEMENT_ID = 'guided-scan-v12-server-model';
+const ANNOUNCEMENT_ID = 'guided-scan-v12-server-model-v2';
 const STORAGE_KEY = `riichicam-announcement:${ANNOUNCEMENT_ID}`;
 
 const C = {
@@ -48,6 +49,13 @@ export default function GuidedScanUpdateNotice() {
     setOpen(false);
   }
 
+  function goToGuidedScan() {
+    dismiss();
+    // A full navigation is dependable from an installed PWA as well as a
+    // browser tab, even while the announcement is unmounting.
+    window.location.assign('/score');
+  }
+
   if (!open) return null;
 
   return (
@@ -73,7 +81,7 @@ export default function GuidedScanUpdateNotice() {
               className="flex-shrink-0 flex items-center justify-center rounded-sm"
               style={{ width: 38, height: 44, background: C.surfaceEl, border: `1px solid ${C.goldBorder}` }}
             >
-              <span style={{ color: C.goldBright, fontFamily: 'serif', fontSize: 24, lineHeight: 1 }}>發</span>
+              <Image src="/icon.svg" alt="" width={30} height={30} priority />
             </div>
             <div>
               <p className="text-xs font-semibold" style={{ color: C.gold, letterSpacing: '0.08em' }}>GUIDED SCAN UPDATE</p>
@@ -95,14 +103,14 @@ export default function GuidedScanUpdateNotice() {
           >
             Not now
           </button>
-          <a
-            href="/score"
-            onClick={dismiss}
+          <button
+            type="button"
+            onClick={goToGuidedScan}
             className="rounded-sm text-sm font-semibold"
             style={{ background: C.goldBright, color: C.bg, padding: '9px 13px', textDecoration: 'none' }}
           >
             Try Guided Scan
-          </a>
+          </button>
         </div>
       </section>
     </div>
