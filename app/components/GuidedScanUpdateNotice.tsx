@@ -49,13 +49,6 @@ export default function GuidedScanUpdateNotice() {
     setOpen(false);
   }
 
-  function goToGuidedScan() {
-    dismiss();
-    // A full navigation is dependable from an installed PWA as well as a
-    // browser tab, even while the announcement is unmounting.
-    window.location.assign('/score');
-  }
-
   if (!open) return null;
 
   return (
@@ -94,22 +87,14 @@ export default function GuidedScanUpdateNotice() {
             </div>
           </div>
         </div>
-        <div className="px-5 py-4 flex items-center justify-end gap-3">
+        <div className="px-5 py-4 flex justify-end">
           <button
             ref={closeButton}
             onClick={dismiss}
-            className="text-sm font-medium"
-            style={{ color: C.textSec }}
-          >
-            Not now
-          </button>
-          <button
-            type="button"
-            onClick={goToGuidedScan}
             className="rounded-sm text-sm font-semibold"
-            style={{ background: C.goldBright, color: C.bg, padding: '9px 13px', textDecoration: 'none' }}
+            style={{ background: C.goldBright, color: C.bg, padding: '9px 13px' }}
           >
-            Try Guided Scan
+            Dismiss
           </button>
         </div>
       </section>
