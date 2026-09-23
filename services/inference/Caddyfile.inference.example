@@ -1,7 +1,7 @@
 # Append this block to the VM's existing /etc/caddy/Caddyfile. Caddy already
 # owns public ports 80/443; RiichiCam only listens on 127.0.0.1:8081.
 inference.riichicam.com {
-    @inference path /v1/detect /healthz /readyz
+    @inference path /v1/detect
     handle @inference {
         reverse_proxy 127.0.0.1:8081 {
             transport http {

@@ -3,7 +3,7 @@ FROM python:3.12.11-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    MODEL_PATH=/models/tile-detector.onnx \
+    MODEL_PATH=/models/private-model.onnx \
     REQUIRE_CUDA=false \
     MODEL_CLASS_PROFILE=riichicast-v2 \
     PORT=8080
@@ -16,7 +16,7 @@ COPY services/inference/requirements-cpu.txt ./requirements.txt
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
 COPY services/inference/app ./app
-COPY ${MODEL_FILE} /models/tile-detector.onnx
+COPY ${MODEL_FILE} /models/private-model.onnx
 
 RUN useradd --create-home --uid 10001 appuser \
     && chown -R appuser:appuser /srv /models

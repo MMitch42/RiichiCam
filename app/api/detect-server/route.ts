@@ -32,6 +32,13 @@ function jpegFromBase64(image: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(bytes);
 }
 
+function publicDetectionResponse(payload: unknown): { image: unknown; predictions: unknown } | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const response = payload as Record<string, unknown>;
+  if (!response.image || !Array.isArray(response.predictions)) return null;
+  return { image: response.image, predictions: response.predictions };
+}
+
 export async function POST(request: Request): Promise<Response> {
   if (!enabled()) {
     return NextResponse.json({ error: 'server_inference_disabled' }, { status: 503 });
@@ -82,15 +89,29 @@ export async function POST(request: Request): Promise<Response> {
       },
     );
 
-    const responseBody = await upstream.arrayBuffer();
-    return new Response(responseBody, {
-      status: upstream.status,
-      headers: {
-        'content-type': upstream.headers.get('content-type') ?? 'application/json',
-        'cache-control': 'no-store',
-        'x-request-id': upstream.headers.get('x-request-id') ?? requestId,
-      },
-    });
+    const responseBody = await upstream.text();
+    const headers = {
+      'content-type': upstream.headers.get('content-type') ?? 'application/json',
+      'cache-control': 'no-store',
+      'x-request-id': upstream.headers.get('x-request-id') ?? requestId,
+    };
+
+    if (!upstream.ok) {
+      return new Response(responseBody, { status: upstream.status, headers });
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(responseBody);
+    } catch {
+      return NextResponse.json({ error: 'invalid_inference_response' }, { status: 502 });
+    }
+
+    const response = publicDetectionResponse(payload);
+    if (!response) {
+      return NextResponse.json({ error: 'invalid_inference_response' }, { status: 502 });
+    }
+    return NextResponse.json(response, { headers });
   } catch (error) {
     console.error('Server inference broker failed', error);
     const code = error instanceof Error ? error.message : 'server_inference_failed';

@@ -2,11 +2,11 @@
 
 Riichi mahjong hand scorer with camera tile detection. Scan your hand, confirm conditions, get a full score breakdown: fu, han, yaku list, and payment table.
 
-Built with Next.js App Router, TypeScript, Tailwind CSS, and a private CUDA inference service. Deployed on Vercel.
+Built with Next.js App Router, TypeScript, Tailwind CSS, and a private GPU inference service. Deployed on Vercel.
 
 A standalone V100 inference service is in `services/inference/`. The browser sends
-scan images to RiichiCam's Vercel broker, which authenticates to the private service;
-the V12 model is never shipped to browsers.
+scan images to RiichiCam's Vercel broker, which authenticates to the private service.
+The browser never downloads a detector model or a model runtime.
 
 **[Live app](http://riichicam.com) · [Give feedback](mailto:support.riichicam@gmail.com?subject=RiichiCam%20Feedback)**
 
@@ -75,8 +75,8 @@ npm run build    # production build
 npm test         # test suite (vitest)
 ```
 
-The browser no longer loads the production detector model. The private V12 model
-is mounted read-only into the VM container; see
+All production scans use the private inference service. The browser does not contain
+or run a detector model. The private model is mounted read-only into the VM container; see
 [`services/inference/README.md`](services/inference/README.md) for the existing-host
 Caddy/HTTPS deployment steps.
 
@@ -111,7 +111,6 @@ app/
   layout.tsx                    # root layout
   globals.css                   # design tokens (dark slate + gold)
   score/page.tsx                # scanning + scoring flow, private-server detection wiring
-  debug/onnx/page.tsx            # internal-only harness for testing the detector directly
   api/
     detect-gemini/route.ts       # alternative inference route (Gemini), not wired into the main flow
     detect-server/route.ts       # authenticated Vercel broker for private VM inference
@@ -149,5 +148,6 @@ services/inference/
 **Tile graphics:** [FluffyStuff/riichi-mahjong-tiles](https://github.com/FluffyStuff/riichi-mahjong-tiles).
 SVG tile images used in the tile picker and score display. Released into the public domain under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-**Detection service:** RiichiCam's production detector is hosted privately. The model is
-not distributed to browsers; only detection results are returned.
+**Detection service:** RiichiCam's production detector is hosted privately. The browser sends
+a scan only to request detection results. It does not receive model weights, model metadata,
+or a model runtime.

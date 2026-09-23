@@ -29,8 +29,8 @@ Cloud Run cannot deploy until the referenced container exists, so bootstrap in t
      -target=google_artifact_registry_repository.inference
    ```
 
-3. Place `riichicast-v2.onnx` in `services/inference/models/`, then build and push from the
-   repository root:
+3. Place the private model artifact in the ignored `services/inference/models/` directory,
+   then build and push from the repository root:
 
    ```bash
    gcloud auth configure-docker us-central1-docker.pkg.dev
@@ -46,7 +46,9 @@ Cloud Run cannot deploy until the referenced container exists, so bootstrap in t
    exchange the short-lived Vercel token through this pool, impersonate the invoker service
    account, and mint the Google ID token Cloud Run expects.
 
-The current browser ONNX implementation remains unchanged and does not call this service.
+This is an optional private deployment path. RiichiCam's production browser sends scan images
+only to its authenticated private inference service and never downloads model files or an
+inference runtime.
 
 ## Existing `riichicast` deployment
 

@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DEBIAN_FRONTEND=noninteractive \
-    MODEL_PATH=/models/tile-detector.onnx \
+    MODEL_PATH=/models/private-model.onnx \
     REQUIRE_CUDA=true \
     PORT=8080
 

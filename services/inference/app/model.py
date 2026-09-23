@@ -131,7 +131,7 @@ class TileDetector:
 
 
 def detector_from_environment() -> TileDetector:
-    model_path = Path(os.getenv("MODEL_PATH", "/models/tile-detector.onnx"))
+    model_path = Path(os.getenv("MODEL_PATH", "/models/private-model.onnx"))
     require_cuda = os.getenv("REQUIRE_CUDA", "true").lower() not in {"0", "false", "no"}
     class_profile = os.getenv("MODEL_CLASS_PROFILE", "riichicam-current")
     return TileDetector(

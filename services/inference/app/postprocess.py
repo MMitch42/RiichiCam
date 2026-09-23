@@ -11,7 +11,7 @@ PAD_VALUE = 114
 DEFAULT_CONFIDENCE_THRESHOLD = 0.45
 DEFAULT_IOU_THRESHOLD = 0.5
 
-# This order must stay byte-for-byte equivalent to lib/detection/tile-classes.ts.
+# This profile defines the labels returned by the private inference service.
 RIICHICAM_CLASS_NAMES = (
     "1m", "1p", "1s", "1z",
     "2m", "2p", "2s", "2z",
@@ -33,7 +33,7 @@ RIICHICAST_V2_CLASS_NAMES = (
     "5mr", "5pr", "5sr",
 )
 
-# Backwards-compatible name used by the browser-model contract tests.
+# Default profile for private-service post-processing tests.
 CLASS_NAMES = RIICHICAM_CLASS_NAMES
 
 CLASS_PROFILES = {

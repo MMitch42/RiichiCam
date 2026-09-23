@@ -23,21 +23,23 @@ export default function PrivacyPage() {
       <Link href="/" style={s.a}>← Back to RiichiCam</Link>
 
       <h1 style={s.h1}>Privacy Policy</h1>
-      <p style={s.meta}>Last updated: September 22, 2026</p>
+      <p style={s.meta}>Last updated: September 23, 2026</p>
 
       <p style={s.p}>
         RiichiCam is a free, open-source riichi mahjong scoring tool. This policy explains what
-        data is collected, why, and what choices you have. We collect as little as possible.
+        data is collected, why, and what choices you have. RiichiCam has no accounts and
+        collects only what is needed to provide scanning, optional training contributions, and
+        basic site analytics.
       </p>
 
       {/* ── 1. What we collect ─────────────────────────────────── */}
       <h2 style={s.h2}>1. What we collect</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Camera images</strong>: When you use tile detection, the photo is sent
-          through RiichiCam&apos;s hosting provider to our private inference server solely to
-          identify tiles. Detection images are not retained unless you explicitly opt in to
-          contribute them as training data (see §3 below).
+          <strong>Camera images</strong>: When you use tile detection, the photo is sent from
+          your browser to RiichiCam&apos;s Vercel broker and then to our private inference service
+          solely to identify tiles. RiichiCam does not save detection images unless you explicitly
+          opt in to contribute them as training data.
         </li>
         <li>
           <strong>Training metadata (opt-in only)</strong>: When you consent to contribute
@@ -46,9 +48,10 @@ export default function PrivacyPage() {
           dimensions, and the model's tile predictions.
         </li>
         <li>
-          <strong>Analytics</strong>: We use Vercel Analytics (cookieless) and Google
-          Analytics 4 to collect anonymous usage statistics such as page views and session
-          counts. Neither service is configured to collect personally identifiable information.
+          <strong>Analytics and request information</strong>: We use Vercel Web Analytics and
+          Google Analytics 4 for usage statistics such as page views, approximate location,
+          browser, device type, and session activity. Vercel may also process network and request
+          information, including IP address, to operate and secure the hosted site.
         </li>
         <li>
           <strong>Local storage</strong>: Your scoring preferences and training consent
@@ -56,21 +59,23 @@ export default function PrivacyPage() {
         </li>
       </ul>
       <p style={s.note}>
-        We do not collect your name, email address, IP address, or any account information.
-        RiichiCam has no user accounts.
+        RiichiCam does not ask for your name, email address, or account information. Service
+        providers may process technical information needed to deliver the site as described below.
       </p>
 
       {/* ── 2. Camera & images ─────────────────────────────────── */}
       <h2 style={s.h2}>2. Camera access and image processing</h2>
       <p style={s.p}>
         Camera access is requested only when you use the tile-scanning feature and is never
-        active in the background. The image is sent over HTTPS to a private RiichiCam inference
-        service, which returns detected tile labels and does not store the image. Images may
-        also pass through our hosting provider while the request is processed.
+        active in the background. The image is sent over HTTPS to RiichiCam&apos;s Vercel broker,
+        which forwards it to a private RiichiCam inference service. The service returns detected
+        tile labels and does not store the image. The detector model runs only on that private
+        service and is not delivered to your browser.
       </p>
       <p style={s.p}>
-        Images may incidentally capture your hands or surroundings. We do not use these images
-        for any purpose other than tile detection, and they are not retained unless you opt in.
+        Images may incidentally capture your hands or surroundings. RiichiCam uses them only to
+        perform the requested scan and does not save them unless you opt in. Vercel and other
+        service providers may process request and log data under their own policies.
       </p>
 
       {/* ── 3. Training data contribution ──────────────────────── */}
@@ -91,13 +96,15 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>4. Cookies and analytics</h2>
       <ul style={s.ul}>
         <li>
-          <strong>Vercel Analytics</strong>: Cookieless, privacy-preserving analytics.
-          No cookies are set. No cross-site tracking.
+          <strong>Vercel Web Analytics</strong>: Vercel reports aggregated page, referrer,
+          country, browser, operating-system, and device information. It does not use third-party
+          cookies or provide us with individual visitor profiles.
         </li>
         <li>
           <strong>Google Analytics 4</strong>: Sets first-party cookies (<code>_ga</code>,
-          <code>_ga_*</code>) to distinguish sessions. Data is anonymised and aggregated.
-          IP anonymisation is enabled by default in GA4. You can opt out via{" "}
+          <code>_ga_*</code>) to distinguish sessions and reports aggregated usage information.
+          Google Analytics uses IP addresses during collection to derive location, then discards
+          them before logging. You can opt out via{" "}
           <a href="https://tools.google.com/dlpage/gaoptout" style={s.a}>Google's opt-out browser add-on</a>.
         </li>
       </ul>
@@ -108,7 +115,8 @@ export default function PrivacyPage() {
         <li>
           <strong>Private inference service</strong>: Tile detection runs on a private
           RiichiCam server. It receives the image only for the duration of detection and returns
-          tile predictions; model files and detection images are not publicly accessible.
+          tile predictions. Model files are not delivered to users, and detection images are not
+          publicly accessible.
         </li>
         <li>
           <strong>Vercel</strong>: Hosting, serverless functions, Blob storage, and
@@ -126,7 +134,8 @@ export default function PrivacyPage() {
       <ul style={s.ul}>
         <li>
           <strong>Detection images (not opted-in)</strong>: Sent only to perform the requested
-          scan and not retained by RiichiCam after the response is returned.
+          scan and not saved by RiichiCam after the response is returned. Service providers may
+          retain technical or request logs under their own policies.
         </li>
         <li>
           <strong>Training images (opted-in)</strong>: Retained indefinitely for model
@@ -175,7 +184,7 @@ export default function PrivacyPage() {
       <h2 style={s.h2}>10. Contact</h2>
       <p style={s.p}>
         Questions, deletion requests, or data subject requests:{" "}
-        <a href="mailto:support.riichicam@gmail.com" style={s.a}>support.riichicam@gmail.com</a>
+        <a href="mailto:support@riichicam.com" style={s.a}>support@riichicam.com</a>
       </p>
 
       <div style={{ marginTop: 48, paddingTop: 24, borderTop: "1px solid rgba(201,162,39,0.2)" }}>

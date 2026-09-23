@@ -29,7 +29,7 @@ const MAX_HAND_TILES = 18;
 const MAX_MELD_TILES = 20;
 const MAX_DORA_TILES = 12;
 
-// Client-side port of the on-device detection pipeline's per-section splitter.
+// Separates private-service detections into the Guided Scan regions.
 // Runs entirely in the browser, no server round-trip.
 export function splitBySection(
   predictions: RawPrediction[],

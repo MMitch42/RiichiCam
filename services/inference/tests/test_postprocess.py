@@ -1,6 +1,4 @@
-import re
 import unittest
-from pathlib import Path
 
 import numpy as np
 
@@ -24,12 +22,8 @@ class LetterboxTests(unittest.TestCase):
 
 
 class ClassContractTests(unittest.TestCase):
-    def test_class_order_matches_browser_detector(self) -> None:
-        repository_root = Path(__file__).resolve().parents[3]
-        typescript = (repository_root / "lib/detection/tile-classes.ts").read_text()
-        array_source = typescript.split("export const CLASS_NAMES = [", 1)[1].split("] as const", 1)[0]
-        browser_classes = tuple(re.findall(r"'([^']+)'", array_source))
-        self.assertEqual(CLASS_NAMES, browser_classes)
+    def test_default_profile_is_riichicam_profile(self) -> None:
+        self.assertEqual(class_names_for_profile("riichicam-current"), CLASS_NAMES)
 
     def test_riichicast_v2_profile_has_the_same_tile_vocabulary(self) -> None:
         self.assertEqual(set(RIICHICAST_V2_CLASS_NAMES), set(CLASS_NAMES))

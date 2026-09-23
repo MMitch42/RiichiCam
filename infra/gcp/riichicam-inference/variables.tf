@@ -27,7 +27,7 @@ variable "model_version" {
 }
 
 variable "model_class_profile" {
-  description = "Class ordering used by the selected ONNX model."
+  description = "Class ordering used by the selected private model."
   type        = string
   default     = "riichicast-v2"
 }

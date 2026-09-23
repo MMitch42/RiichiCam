@@ -28,9 +28,6 @@ next-env.d.ts
 .rocketride/
 .vercel
 
-# onnxruntime-web runtime (wasm binaries regenerated from node_modules on install)
-/public/ort/
-
 # Private server models are staged only for authenticated Cloud Build uploads.
 # Never commit RiichiCast model weights to the public RiichiCam repository.
 /services/inference/models/*.onnx

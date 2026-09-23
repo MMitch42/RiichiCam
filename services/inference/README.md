@@ -1,37 +1,31 @@
 # RiichiCam inference service
 
 Standalone private GPU service for RiichiCam tile detection. The production scorer calls it
-through its Vercel broker; the V12 model is never included in the browser deployment.
+through its Vercel broker. The private model is never included in the browser deployment.
 
 ## API
 
 `POST /v1/detect` accepts the JPEG bytes as the request body with `Content-Type: image/jpeg`.
-Optional `confidence` and `iou` query parameters default to the browser detector's current
-values (`0.45` and `0.5`). The response preserves the historical `RawPrediction` shape so the
-existing TypeScript tile, guided-section, and meld parsing can be reused by a future broker.
+Optional `confidence` and `iou` query parameters default to `0.45` and `0.5`. The response
+uses the tile-prediction shape consumed by RiichiCam's scoring and Guided Scan code.
 
 ```json
 {
-  "apiVersion": "1",
-  "requestId": "uuid",
-  "modelVersion": "sha256-prefix",
-  "provider": "CUDAExecutionProvider",
   "image": { "width": 1600, "height": 1200 },
   "predictions": [
     { "class": "1m", "confidence": 0.98, "x": 120, "y": 300, "width": 60, "height": 90 }
-  ],
-  "timingMs": { "preprocess": 8, "inference": 20, "postprocess": 2, "total": 30 }
+  ]
 }
 ```
 
-Health endpoints are `/healthz` and `/readyz`. Readiness succeeds only after the model has
-loaded and a warm-up inference has completed.
+Health endpoints are bound to the VM loopback interface. Readiness succeeds only after the
+model has loaded and a warm-up inference has completed. They are not published through Caddy.
 
-## VM deployment: RiichiCam V12 on the shared V100
+## VM deployment: RiichiCam on the shared V100
 
 `docker-compose.vm.example.yml` is the production starting point for the existing
-V100 VM. It runs one CUDA worker, mounts the private V12 model read-only, and does
-publishes the inference container only to `127.0.0.1:8081`. The VM's existing
+V100 VM. It runs one CUDA worker, mounts the private model read-only, and publishes
+the inference container only to `127.0.0.1:8081`. The VM's existing
 Caddy service is the only public ingress; it terminates HTTPS and the service
 itself rejects every detection request without its server-only bearer token.
 
@@ -51,9 +45,10 @@ itself rejects every detection request without its server-only bearer token.
 
    ```text
    INFERENCE_UPSTREAM_TOKEN=<paste generated token here>
+   PRIVATE_MODEL_HOST_PATH=/absolute/path/to/private-model.onnx
    ```
 
-4. Start the isolated service:
+3. Start the isolated service:
 
    ```bash
    docker compose --env-file services/inference/.env -f services/inference/docker-compose.vm.example.yml up -d --build
@@ -61,7 +56,7 @@ itself rejects every detection request without its server-only bearer token.
    docker compose --env-file services/inference/.env -f services/inference/docker-compose.vm.example.yml exec inference python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8080/readyz').read().decode())"
    ```
 
-5. Append the content of `Caddyfile.inference.example` to the VM's existing
+4. Append the content of `Caddyfile.inference.example` to the VM's existing
    `/etc/caddy/Caddyfile`, then validate and reload without interrupting the
    existing RiichiCast routes:
 
@@ -70,7 +65,10 @@ itself rejects every detection request without its server-only bearer token.
    sudo systemctl reload caddy
    ```
 
-6. In Vercel, set production environment variables:
+   The published route must include only `/v1/detect`. Keep `/healthz` and `/readyz` on the
+   VM loopback interface so they cannot disclose service details publicly.
+
+5. In Vercel, set production environment variables:
 
    ```text
    RIICHICAM_SERVER_INFERENCE_ENABLED=true
@@ -85,14 +83,15 @@ remains on its own loopback port and is not exposed by Caddy.
 
 ## Local development
 
-The GPU image requires CUDA. CPU fallback is deliberately opt-in for local testing:
+The GPU image requires CUDA. CPU use is available only for local service development. Supply
+your own private model artifact outside this repository:
 
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r services/inference/requirements-dev.txt
 PYTHONPATH=services/inference REQUIRE_CUDA=false \
-  MODEL_PATH=public/models/tile-detector.onnx \
+  MODEL_PATH=/absolute/path/to/private-model.onnx \
   uvicorn app.main:app --port 8080
 ```
 
@@ -108,14 +107,14 @@ Build the production image from the repository root so Docker can include the ex
 docker build -f services/inference/Dockerfile -t riichicam-inference .
 ```
 
-The container installs the CUDA 12 / cuDNN 9 ONNX Runtime package and refuses to become ready
-if it resolves to CPU in production.
+The container installs the CUDA 12 and cuDNN 9 runtime and refuses to become ready if it
+resolves to CPU in production.
 
 ## Legacy CPU-first Cloud Run deployment
 
-`Dockerfile.cpu` packages the smaller RiichiCast v2 model and uses standard ONNX Runtime. The
-class profile is explicit because v2's output classes are suit-grouped, unlike the current
-browser model. This service can use request-based billing and scale to zero:
+`Dockerfile.cpu` packages a smaller private RiichiCast model. Its class profile is explicit
+because its output classes use a different order from the active V100 model. This service can
+use request-based billing and scale to zero:
 
 ```bash
 gcloud builds submit \
