@@ -33,6 +33,15 @@ const C = {
   redText:      '#cc5544',
 };
 
+const DEFAULT_HONBA_VALUE = 300;
+
+function parseHonbaValue(value: string): number | null {
+  const points = Number(value);
+  return /^(?:\d+|\d*\.\d+)(?:e[+-]?\d+)?$/i.test(value) && points >= 0 && points % 300 === 0 && Number.isSafeInteger(points * 8)
+    ? points
+    : null;
+}
+
 // ─── Reusable UI primitives ───────────────────────────────────────────────────
 
 function Toggle({
@@ -281,11 +290,13 @@ function ResultPanel({
   winType,
   seatWind,
   honba,
+  honbaValue,
 }: {
   result: ScoreResult;
   winType: 'tsumo' | 'ron';
   seatWind: WindValue;
   honba: number;
+  honbaValue: number;
 }) {
   const [fuOpen, setFuOpen] = useState(false);
   const [openTooltip, setOpenTooltip] = useState<string | null>(null);
@@ -305,14 +316,14 @@ function ResultPanel({
   const grandTotal = result.totalHan + totalDora;
   const isDealer = seatWind === 'east';
 
-  const honbaBonus = honba * 300;
+  const honbaBonus = honba * honbaValue;
   const adjustedTotal = result.points.total + honbaBonus;
 
   // Per-player adjusted amounts for tsumo
   const tsumoNonDealer = result.points.tsumo?.nonDealerPays ?? 0;
   const tsumoDealer = result.points.tsumo?.dealerPays ?? 0;
-  const adjNonDealer = tsumoNonDealer + honba * 100;
-  const adjDealer = tsumoDealer + honba * 100;
+  const adjNonDealer = tsumoNonDealer + honbaBonus / 3;
+  const adjDealer = tsumoDealer + honbaBonus / 3;
 
   // Adjusted ron
   const adjRon = (result.points.ron ?? 0) + honbaBonus;
@@ -322,8 +333,8 @@ function ResultPanel({
       {/* Points header */}
       <div className="px-5 py-5" style={{ background: `linear-gradient(to bottom, rgba(201,162,39,0.08), transparent)`, borderBottom: `1px solid ${C.goldBorderXs}` }}>
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="leading-none font-bold tabular-nums" style={{ fontSize: '3.5rem', color: C.goldBright, fontVariantNumeric: 'tabular-nums' }}>
+          <div className="min-w-0">
+            <p className="leading-none font-bold tabular-nums break-all" style={{ fontSize: '3.5rem', color: C.goldBright, fontVariantNumeric: 'tabular-nums' }}>
               {adjustedTotal.toLocaleString()}
             </p>
             <p className="text-xs mt-1 font-semibold tracking-widest uppercase" style={{ color: C.textSec }}>points</p>
@@ -360,17 +371,17 @@ function ResultPanel({
         )}
         {honba > 0 && (
           <div className="mt-3 pt-3 space-y-1 font-mono text-xs" style={{ borderTop: `1px solid ${C.goldBorderXs}` }}>
-            <div className="flex justify-between">
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1">
               <span style={{ color: C.textSec }}>Hand</span>
-              <span style={{ color: C.textSec }}>{result.points.total.toLocaleString()}</span>
+              <span className="ml-auto min-w-0 break-all text-right" style={{ color: C.textSec }}>{result.points.total.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between">
-              <span style={{ color: C.textSec }}>Honba ({honba} × 300)</span>
-              <span style={{ color: C.textSec }}>+{honbaBonus.toLocaleString()}</span>
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1">
+              <span className="min-w-0 break-all" style={{ color: C.textSec }}>Honba ({honba} × {honbaValue.toLocaleString()})</span>
+              <span className="ml-auto min-w-0 break-all text-right" style={{ color: C.textSec }}>+{honbaBonus.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between font-semibold pt-1" style={{ borderTop: `1px solid ${C.goldBorderXs}`, color: C.text }}>
+            <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 font-semibold pt-1" style={{ borderTop: `1px solid ${C.goldBorderXs}`, color: C.text }}>
               <span>Total</span>
-              <span>{adjustedTotal.toLocaleString()}</span>
+              <span className="ml-auto min-w-0 break-all text-right">{adjustedTotal.toLocaleString()}</span>
             </div>
           </div>
         )}
@@ -515,6 +526,24 @@ export default function Home() {
   // ── Honba ─────────────────────────────────────────────────────────────────
   const [honba, setHonba] = useState(0);
   const [honbaInfoOpen, setHonbaInfoOpen] = useState(false);
+  const [honbaValueInput, setHonbaValueInput] = useState(String(DEFAULT_HONBA_VALUE));
+  const honbaValue = parseHonbaValue(honbaValueInput);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('honbaValue');
+      const points = stored === null ? null : parseHonbaValue(stored);
+      if (points !== null) setHonbaValueInput(String(points));
+    } catch {}
+  }, []);
+
+  function handleHonbaValueChange(value: string) {
+    setHonbaValueInput(value);
+    const points = parseHonbaValue(value);
+    if (points !== null) {
+      try { localStorage.setItem('honbaValue', String(points)); } catch {}
+    }
+  }
 
   // ── Dealer / seat wind (synced) ───────────────────────────────────────────
   const [dealer, setDealer] = useState(false);
@@ -917,7 +946,7 @@ export default function Home() {
     });
   }, [handTiles, melds, winType, seatWind, roundWind, doraIndicatorTiles, riichi, doubleRiichi, ippatsu, haitei, houtei, rinshan, chankan]);
 
-  const canScore = handTiles.length + meldTileCount === 13 + numKans && winningTile !== null;
+  const canScore = handTiles.length + meldTileCount === 13 + numKans && winningTile !== null && honbaValue !== null;
   const winningTileValid = !winningTile || tenpaiWaits.some(w => tileMatchesValue(w, winningTile));
   const usedTiles: Tile[] = [
     ...handTiles,
@@ -1275,9 +1304,28 @@ export default function Home() {
               </div>
               {honbaInfoOpen && (
                 <p className="text-xs mt-1.5 pr-4 leading-relaxed" style={{ color: C.textSec }}>
-                  Each honba stick on the table adds 300 pts to the total win (100 pts from each player for tsumo, 300 pts from the discarder for ron).
+                  Each honba stick adds the selected value to the total win. For tsumo, each player pays one third. For ron, the discarder pays the full amount.
                 </p>
               )}
+              <div className="flex items-center justify-between gap-3 mt-3">
+                <label htmlFor="honba-value" className="text-sm font-medium" style={{ color: C.text }}>Honba value</label>
+                <input
+                  id="honba-value"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  step={300}
+                  value={honbaValueInput}
+                  onChange={(e) => handleHonbaValueChange(e.target.value)}
+                  aria-invalid={honbaValue === null}
+                  aria-describedby="honba-value-help"
+                  className="w-24 px-2 py-1.5 text-sm text-right font-semibold tabular-nums rounded-sm"
+                  style={{ background: C.surfaceEl, color: C.text, border: `1px solid ${honbaValue === null ? C.redText : C.goldBorderSm}` }}
+                />
+              </div>
+              <p id="honba-value-help" className="text-xs mt-1.5 leading-relaxed" style={{ color: honbaValue === null ? C.redText : C.textSec }}>
+                Points per stick. Use 0 or multiples of 300 so tsumo payments stay in 100-point units. Default: 300.
+              </p>
             </div>
           </div>
 
@@ -1499,7 +1547,7 @@ export default function Home() {
         </div>
 
         {/* ── Result ───────────────────────────────────────────────────── */}
-        {result && <ResultPanel result={result} winType={winType} seatWind={seatWind} honba={honba} />}
+        {result && honbaValue !== null && <ResultPanel result={result} winType={winType} seatWind={seatWind} honba={honba} honbaValue={honbaValue} />}
 
         {/* ── Footer ───────────────────────────────────────────────────── */}
         <footer className="pt-6 pb-8 space-y-3 text-center">
